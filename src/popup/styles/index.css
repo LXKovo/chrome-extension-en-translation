@@ -1,0 +1,16 @@
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 120px;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  color: #333;
+  background: #fff;
+}
+
+.app {
+  padding: 16px;
+}
