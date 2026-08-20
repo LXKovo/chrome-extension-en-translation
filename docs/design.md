@@ -36,7 +36,7 @@
 
 插件采用 MV3 的三层结构：**内容脚本（Content Script）** 负责提取，**后台 Service Worker** 负责翻译调用与消息路由，**弹窗（Popup，React UI）** 负责交互与结果展示。
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                       当前网页 (Web Page)                       │
 │                                                               │
@@ -88,7 +88,7 @@
 
 配套链路：
 
-```
+```text
 页面 DOM
   → Readability.parse()           提取标题 / 作者 / 正文 HTML
   → DOMPurify.sanitize()          净化，防 XSS
@@ -162,7 +162,7 @@
 
 ## 8. 关键流程
 
-```
+```text
 用户点击工具栏图标
    │
    ▼
@@ -189,7 +189,7 @@ Popup 拼接最终格式 → 写入 chrome.storage.local
 
 ## 9. 目录结构规范
 
-```
+```text
 chrome-extension-en-translation/
 ├── docs/                          # 文档
 │   ├── proposal.md                # 需求文档
@@ -225,7 +225,8 @@ chrome-extension-en-translation/
 **目录职责约定**：
 
 - `src/shared/` 为跨层共享层，仅存放**无副作用**的类型、常量与协议定义，不依赖浏览器插件 API 的具体实现细节。
-- `src/background/`、`src/content/`、`src/popup/` 为三个独立运行上下文，**不得相互直接 import 对方内部实现**，只能通过 `src/shared/` 与 `chrome.runtime` 消息通信。
+- `src/background/`、`src/content/`、`src/popup/` 为三个独立运行上下文，**不得相互直接 import 对方内部实现**，
+  只能通过 `src/shared/` 与 `chrome.runtime` 消息通信。
 - 提取、翻译、展示三大能力分别落在 `content/extractor`、`background/translator`、`popup/hooks`，职责单一、可替换。
 
 ## 10. 编码规范
@@ -279,9 +280,9 @@ chrome-extension-en-translation/
 
 ## 13. 参考资料
 
-- Mozilla Readability（GitHub）：https://github.com/mozilla/readability
-- Readability 使用与选型分析：https://vampireachao.github.io/2025/01/30/readability/
-- Markdown Clipper（Readability + Turndown 实践）：https://github.com/mmstroik/markdown-clipper
-- Gloriosa（Readability + Turndown 转 Markdown 扩展）：https://github.com/myakura/gloriosa
-- Summa（Readability + Turndown + LLM 摘要扩展）：https://rustpoint.com/nav/detail/1103215
+- Mozilla Readability（GitHub）：<https://github.com/mozilla/readability>
+- Readability 使用与选型分析：<https://vampireachao.github.io/2025/01/30/readability/>
+- Markdown Clipper（Readability + Turndown 实践）：<https://github.com/mmstroik/markdown-clipper>
+- Gloriosa（Readability + Turndown 转 Markdown 扩展）：<https://github.com/myakura/gloriosa>
+- Summa（Readability + Turndown + LLM 摘要扩展）：<https://rustpoint.com/nav/detail/1103215>
 - md-wx 组件使用文档：`docs/md-wx-api-usage.md`

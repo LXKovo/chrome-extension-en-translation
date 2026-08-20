@@ -1,0 +1,11 @@
+{
+  // 项目文档为内部设计文档：中文长段落、ASCII 示意框图、密集表格是有意为之的排版。
+  // 保留 markdownlint 默认规则作为格式统一标准，仅对 MD013（行宽）做针对中文的放宽。
+  "default": true,
+  "MD013": {
+    "line_length": 120, // 正文行宽上限放宽到 120（中文无空格，80 会拦腰截断）
+    "code_blocks": false, // 代码块不查行宽
+    "tables": false, // 表格不查行宽（Markdown 表格必须单行，无法换行）
+    "headings": false // 标题不查行宽
+  }
+}

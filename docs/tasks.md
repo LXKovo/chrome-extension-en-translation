@@ -1,6 +1,7 @@
 # 任务拆分
 
-> 依据 `docs/proposal.md`（需求）、`docs/design.md`（架构）、`docs/layouts/`（页面布局）将实现工作拆分为独立可完成的任务。每个任务均可单独完成并产出**可见效果**，依赖最小化，便于 AI 分步骤实现。
+> 依据 `docs/proposal.md`（需求）、`docs/design.md`（架构）、`docs/layouts/`（页面布局）将实现工作拆分为独立可完成的任务。
+> 每个任务均可单独完成并产出**可见效果**，依赖最小化，便于 AI 分步骤实现。
 
 ## 1. 优先级定义
 
@@ -64,7 +65,8 @@
 - **涉及页面/模块**：Content Script（`design.md` §4 提取链路）；结果区用于验证
 - **实现要点**：
   - 内容脚本入口：监听消息并返回提取结果。
-  - 提取链路：`Readability.parse()` → `DOMPurify` 净化 → 图片 URL 归一化（相对→绝对、懒加载 `data-src` 等）→ `Turndown(+GFM)` 转 Markdown（图片转 `![alt](src)`）。
+  - 提取链路：`Readability.parse()` → `DOMPurify` 净化 → 图片 URL 归一化（相对→绝对、懒加载 `data-src` 等）→
+    `Turndown(+GFM)` 转 Markdown（图片转 `![alt](src)`）。
   - 输出 `{ title, author, url, markdown }`。
   - 定义/完善 `shared` 中的提取消息协议（请求/响应类型）。
 - **完成标准 / 可见效果**：能对任意英文文章页拿到结构化 Markdown；通过临时展示（结果区或状态提示）可确认标题、作者、URL 与正文、图片语法正确。
@@ -77,7 +79,8 @@
 - **依赖**：T2
 - **涉及页面/模块**：[示意图-设置页面.md](layouts/示意图-设置页面.md) 的「API 地址 / API Key / 默认模型 / 保存」
 - **实现要点**：
-  - 完成设置视图的表单：API 地址（预填 `https://api.deepseek.com`）、API Key（掩码 + 显示切换）、默认模型下拉（`deepseek-v4-flash` / `deepseek-v4-pro` / `qwen`）。
+  - 完成设置视图的表单：API 地址（预填 `https://api.deepseek.com`）、API Key（掩码 + 显示切换）、
+    默认模型下拉（`deepseek-v4-flash` / `deepseek-v4-pro` / `qwen`）。
   - 读写 `chrome.storage.local` 的 `settings`（`baseURL` / `apiKey` / `model`）。
   - 保存校验（必填项、格式）与「保存后返回」、未保存改动确认。
   - 主页面操作区的模型下拉与设置页「默认模型」联动。
@@ -164,7 +167,7 @@
 
 ## 4. 依赖关系图
 
-```
+```text
 T1 工程初始化
  ├─▶ T2 主页面骨架 ──────────────┐
  ├─▶ T3 内容提取 ────────────────┤

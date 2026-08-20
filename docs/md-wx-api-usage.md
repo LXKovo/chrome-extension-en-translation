@@ -2,7 +2,6 @@
 
 一个专为微信公众号优化的 Markdown 渲染组件库。
 
-
 ## 特性
 
 - 🎨 **多主题支持** - 内置 5 种精美主题
@@ -175,7 +174,7 @@ const MyComponent: React.FC = () => {
 #### Props
 
 | 属性 | 类型 | 默认值 | 描述 |
-|------|------|--------|------|
+| ------ | ------ | -------- | ------ |
 | markdown | string | '' | Markdown 内容 |
 | theme | string | 'minimal' | 主题名称 |
 | showSettings | boolean | true | 是否显示设置面板 |
@@ -192,4 +191,3 @@ const MyComponent: React.FC = () => {
 - `forest`: 森林绿
 - `ocean`: 海洋蓝
 - `sunset`: 日落橙
-
