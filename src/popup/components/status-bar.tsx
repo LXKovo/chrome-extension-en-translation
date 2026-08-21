@@ -17,13 +17,25 @@ const STATUS_TEXT: Record<TranslationStatus, string> = {
 
 interface StatusBarProps {
   status: TranslationStatus;
+  /** 展示结果为恢复的上次结果时的时间戳（毫秒），状态区显示「上次翻译于 …」（T8） */
+  restoredAt?: number | null;
 }
 
-export default function StatusBar({ status }: StatusBarProps) {
+/** 将时间戳格式化为「yyyy-mm-dd hh:mm」 */
+function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export default function StatusBar({ status, restoredAt = null }: StatusBarProps) {
+  const text =
+    restoredAt != null ? `上次翻译于 ${formatTimestamp(restoredAt)}` : STATUS_TEXT[status];
+
   return (
     <section className={`status-bar status-bar--${status}`}>
       <span className="status-bar__dot">●</span>
-      <span className="status-bar__text">{STATUS_TEXT[status]}</span>
+      <span className="status-bar__text">{text}</span>
     </section>
   );
 }

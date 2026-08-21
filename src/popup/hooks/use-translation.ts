@@ -8,6 +8,7 @@ import {
   MESSAGE_EXTRACT_ARTICLE,
   MESSAGE_TRANSLATE_REQUEST,
   PORT_TRANSLATE_STREAM,
+  STORAGE_KEY_LAST_RESULT,
   STREAM_EVENT_CHUNK,
   STREAM_EVENT_DONE,
   STREAM_EVENT_ERROR,
@@ -18,6 +19,7 @@ import type {
   TranslateRequest,
   StreamEvent,
 } from '../../shared/message';
+import type { LastResult } from '../../shared/types';
 import type { TranslationStatus } from '../components/status-bar';
 
 /** 打字机每个 tick 释放的字符数 */
@@ -49,6 +51,11 @@ export interface UseTranslationReturn {
   startTranslate: () => void;
   stopTranslate: () => void;
   downloadMarkdown: () => void;
+  /**
+   * 当前展示结果为「上次结果恢复」时的时间戳（毫秒），否则为 null。
+   * 用于状态区显示「上次翻译于 …」（T8）。
+   */
+  restoredAt: number | null;
 }
 
 /**
@@ -76,6 +83,10 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
   const [meta, setMeta] = useState<Metadata>({ title: '', author: '', url: '' });
   // 打字机已释放的部分（驱动渲染），原始流数据保存在 ref，避免每字符重渲染
   const [unfoldedRaw, setUnfoldedRaw] = useState('');
+  // 上次结果恢复的最终 Markdown；非空时优先展示（正文已含标题/作者/链接，无需再经 insertHeaderLines 补全）
+  const [restoredMarkdown, setRestoredMarkdown] = useState('');
+  // 恢复结果的完成时间戳，用于状态区「上次翻译于」提示
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
 
   const portRef = useRef<chrome.runtime.Port | null>(null);
   const rawRef = useRef('');
@@ -159,6 +170,8 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       cursorRef.current = 0;
       completionPendingRef.current = false;
       setUnfoldedRaw('');
+      setRestoredMarkdown('');
+      setRestoredAt(null);
       setMeta(nextMeta);
       setErrorMessage('');
       setStatus('translating');
@@ -239,10 +252,55 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
     [stopTimer, closePort],
   );
 
-  // 结果区 Markdown：随打字机进度增长，并为「标题 → 作者/链接 → 正文」补全元数据行
-  const markdown = insertHeaderLines(unfoldedRaw, meta.author, meta.url);
+  // 打开 Popup 时恢复上次结果（T8）：加载 lastResult 并默认展示，可直接查看或下载
+  useEffect(() => {
+    let cancelled = false;
+    const loadLastResult = async () => {
+      try {
+        const result = await chrome.storage.local.get(STORAGE_KEY_LAST_RESULT);
+        if (cancelled) {
+          return;
+        }
+        const stored = result[STORAGE_KEY_LAST_RESULT] as LastResult | undefined;
+        if (stored) {
+          setMeta({ title: stored.title, author: stored.author, url: stored.url });
+          setRestoredMarkdown(stored.markdown);
+          setRestoredAt(stored.timestamp);
+          setStatus('done');
+        }
+      } catch (error) {
+        // 读取失败仅记录，不影响后续直接翻译
+        console.warn('读取上次结果失败', error);
+      }
+    };
+    loadLastResult();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 结果区 Markdown：随打字机进度增长，并为「标题 → 作者/链接 → 正文」补全元数据行；
+  // 若为恢复的上次结果，则直接采用已含完整头部的最终内容，避免重复插入元数据行
+  const markdown = restoredMarkdown || insertHeaderLines(unfoldedRaw, meta.author, meta.url);
   const isBusy = status === 'extracting' || status === 'translating';
   const isTranslating = status === 'translating';
+
+  // 翻译完成（含手动停止）后将最终结果连同元数据持久化到 lastResult（T8）
+  useEffect(() => {
+    if (status !== 'done' || restoredMarkdown || !markdown) {
+      return;
+    }
+    const lastResult: LastResult = {
+      title: meta.title,
+      author: meta.author,
+      url: meta.url,
+      markdown,
+      timestamp: Date.now(),
+    };
+    chrome.storage.local.set({ [STORAGE_KEY_LAST_RESULT]: lastResult }).catch((error) => {
+      console.warn('保存上次结果失败', error);
+    });
+  }, [status, markdown, restoredMarkdown, meta]);
 
   /**
    * 下载当前 Markdown 为 `.md` 文件（T7）。
@@ -272,5 +330,6 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
     startTranslate,
     stopTranslate,
     downloadMarkdown,
+    restoredAt,
   };
 }

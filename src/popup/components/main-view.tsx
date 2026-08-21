@@ -25,6 +25,7 @@ export default function MainView({ model, onModelChange }: MainViewProps) {
     startTranslate,
     stopTranslate,
     downloadMarkdown,
+    restoredAt,
   } = useTranslation({ model });
 
   return (
@@ -39,7 +40,7 @@ export default function MainView({ model, onModelChange }: MainViewProps) {
         onStop={stopTranslate}
         onDownload={downloadMarkdown}
       />
-      <StatusBar status={status} />
+      <StatusBar status={status} restoredAt={restoredAt} />
       {errorMessage ? (
         <div className="status-bar status-bar--error status-bar--detail">{errorMessage}</div>
       ) : null}
