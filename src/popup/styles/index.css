@@ -134,6 +134,17 @@ body {
   background: var(--color-primary-hover);
 }
 
+.button--danger {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: #b91c1c;
+}
+
+.button--danger:hover:not(:disabled) {
+  background: #991b1b;
+}
+
 .button--secondary {
   color: var(--color-text);
   background: var(--color-bg-subtle);

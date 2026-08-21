@@ -36,10 +36,12 @@ export type MessageRequest = ExtractArticleRequest | StopTranslateRequest;
 /** Port 通道名（与 constants.ts 保持一致，供类型引用） */
 export const PORT_NAME_TRANSLATE_STREAM = PORT_TRANSLATE_STREAM;
 
-/** 翻译请求：经 Port 发送给 Background，携带 Markdown 原文 */
+/** 翻译请求：经 Port 发送给 Background，携带 Markdown 原文与用户当前选中的模型 */
 export interface TranslateRequest {
   type: typeof MESSAGE_TRANSLATE_REQUEST;
   markdown: string;
+  /** 主页面选中的模型；为空时后台回退到 settings.model */
+  model?: string;
 }
 
 /** Port 上承载的请求消息联合类型 */

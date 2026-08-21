@@ -39,7 +39,7 @@ chrome.runtime.onConnect.addListener((port) => {
     if (request.type !== MESSAGE_TRANSLATE_REQUEST) {
       return;
     }
-    void runTranslation(port, request.markdown);
+    void runTranslation(port, request);
   });
 
   // Popup 刷新或关闭时中断当前流，避免残留请求
@@ -50,23 +50,25 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 /** 读取配置并启动流式翻译，将增量通过 Port 推送到 Popup */
-async function runTranslation(port: chrome.runtime.Port, markdown: string): Promise<void> {
+async function runTranslation(port: chrome.runtime.Port, request: TranslateRequest): Promise<void> {
   // 为每次翻译单独建立中止控制器，保证可精确中断当前流
   const controller = new AbortController();
   currentAbortController = controller;
 
   try {
-    if (!markdown.trim()) {
+    if (!request.markdown.trim()) {
       throw new Error('翻译内容为空');
     }
     const settings = await readSettings();
     if (!settings.apiKey) {
       throw new Error('未配置 API Key，请先在设置页填写后重试');
     }
+    // 优先使用主页面选中的模型，未指定时回退到设置页「默认模型」
+    const effectiveSettings = request.model ? { ...settings, model: request.model } : settings;
 
     await streamTranslate(
-      settings,
-      markdown,
+      effectiveSettings,
+      request.markdown,
       {
         onDelta: (delta: string) => post(port, { type: STREAM_EVENT_CHUNK, delta }),
         onDone: () => post(port, { type: STREAM_EVENT_DONE }),
