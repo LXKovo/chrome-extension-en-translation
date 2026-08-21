@@ -71,7 +71,8 @@ function insertHeaderLines(raw: string, author: string, url: string): string {
   const head = newlineIndex === -1 ? raw : raw.slice(0, newlineIndex);
   // 除去标题行后的冗余空行，保证「标题 → 作者/链接 → 正文」的固定分隔
   const body = newlineIndex === -1 ? '' : raw.slice(newlineIndex).replace(/^\s*\n+/, '');
-  return `${head}\n\n> 作者：${author || '未知'}\n> 原文链接：${url}\n\n${body}`.trimEnd();
+  // 头部标签及缺省作者占位符遵循需求文档 §4.6 的统一格式
+  return `${head}\n\n> **作者**：${author || 'xxx'}\n> **原文链接**：${url}\n\n${body}`.trimEnd();
 }
 
 export function useTranslation(options: { model: string }): UseTranslationReturn {
@@ -153,19 +154,33 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
     setUnfoldedRaw(rawRef.current);
   }, [stopTimer]);
 
+  // 流式日志节流：仅在累计字符跨过 1000/2000/… 阈值时记录一次，避免每片增量都刷屏
+  const nextLogAtRef = useRef(1000);
+
   const handleStreamEvent = useCallback(
     (event: StreamEvent) => {
       switch (event.type) {
         case STREAM_EVENT_CHUNK:
           rawRef.current += event.delta;
+          // 处于关键节点：增量累计跨过每 1000 字符阈值时记录一次，便于排查流是否持续
+          if (rawRef.current.length >= nextLogAtRef.current) {
+            console.log(
+              `[popup] 收到流式增量，累计收到 ${rawRef.current.length} 字符，本次增量 ${event.delta.length} 字符`,
+            );
+            nextLogAtRef.current += 1000;
+          }
           ensureTimer();
           break;
         case STREAM_EVENT_DONE:
+          console.log(`[popup] 流式翻译完成，累计收到 ${rawRef.current.length} 字符`);
+          nextLogAtRef.current = 1000;
           // 模型已完整输出，等待打字机追平后再由 tick 标记「完成」
           completionPendingRef.current = true;
           ensureTimer();
           break;
         case STREAM_EVENT_ERROR:
+          console.warn('[popup] 流式翻译报错，error=', event.error);
+          nextLogAtRef.current = 1000;
           setErrorMessage(event.error);
           restorePrevious();
           setStatus('error');
@@ -195,15 +210,22 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       try {
         port = chrome.runtime.connect({ name: PORT_TRANSLATE_STREAM });
       } catch (error) {
+        console.warn('[popup] 建立翻译 Port 失败', error);
         setErrorMessage(error instanceof Error ? error.message : '无法建立翻译连接');
         setStatus('error');
         return;
       }
       portRef.current = port;
+      // 关键节点：记录连接建立与待翻译内容规模（仅长度，避免打印正文/Key）
+      console.log(
+        `[popup] 已建立翻译 Port，请求模型=${model}，原文 ${source.length} 字符，title=${nextMeta.title}`,
+      );
 
       const onMessage = (event: StreamEvent) => handleStreamEvent(event);
       port.onMessage.addListener(onMessage);
       port.onDisconnect.addListener(() => {
+        // 关键节点：连接被后台回收或主动停止
+        console.log('[popup] 翻译 Port 已断开');
         // 连接断开（后台回收 / 主动停止），清理引用即可
         if (portRef.current === port) {
           portRef.current = null;
@@ -216,6 +238,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
         model,
       };
       port.postMessage(request);
+      console.log('[popup] 已向后台推送翻译请求');
     },
     [closePort, handleStreamEvent, model],
   );
@@ -223,8 +246,11 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
   /** 一键翻译：提取当前文章 → 拼接标题/正文 → 交由后台流式翻译 */
   const startTranslate = useCallback(async () => {
     if (status === 'extracting' || status === 'translating') {
+      console.warn('[popup] 已在提取/翻译中，忽略重复触发');
       return;
     }
+    // 关键节点：一次新翻译的起点
+    console.log(`[popup] 开始一键翻译，当前模型=${model}`);
     // 快照本次翻译前的已有结果，翻译失败时回退展示，不覆盖上次结果（T9）
     savedMarkdownRef.current = latestMarkdownRef.current;
     setStatus('extracting');
@@ -261,10 +287,11 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       restorePrevious();
       setStatus('error');
     }
-  }, [status, beginStream, restorePrevious]);
+  }, [status, beginStream, restorePrevious, model]);
 
   /** 停止：中断流式请求并立即显示已生成内容 */
   const stopTranslate = useCallback(() => {
+    console.log(`[popup] 用户停止翻译，保留已生成 ${rawRef.current.length} 字符`);
     completionPendingRef.current = false;
     closePort();
     flushUnfolded();
@@ -291,6 +318,9 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
         }
         const stored = result[STORAGE_KEY_LAST_RESULT] as LastResult | undefined;
         if (stored) {
+          console.log(
+            `[popup] 恢复上次结果：title=${stored.title}，${stored.markdown.length} 字符`,
+          );
           setMeta({ title: stored.title, author: stored.author, url: stored.url });
           setRestoredMarkdown(stored.markdown);
           setRestoredAt(stored.timestamp);
@@ -328,9 +358,14 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       markdown,
       timestamp: Date.now(),
     };
-    chrome.storage.local.set({ [STORAGE_KEY_LAST_RESULT]: lastResult }).catch((error) => {
-      console.warn('保存上次结果失败', error);
-    });
+    // 关键节点：记录持久化触发与内容规模
+    console.log(`[popup] 翻译完成，写入 lastResult（${markdown.length} 字符）`);
+    chrome.storage.local
+      .set({ [STORAGE_KEY_LAST_RESULT]: lastResult })
+      .then(() => console.log('[popup] lastResult 写入成功'))
+      .catch((error) => {
+        console.warn('保存上次结果失败', error);
+      });
   }, [status, markdown, restoredMarkdown, meta]);
 
   /**
@@ -339,10 +374,12 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
    */
   const downloadMarkdown = useCallback(() => {
     if (!markdown) {
+      console.warn('[popup] 尝试下载但无可用 Markdown，已忽略');
       return;
     }
     const safeTitle = sanitizeFilename(meta.title);
     const filename = safeTitle ? `${safeTitle}.md` : `translation-${Date.now()}.md`;
+    console.log(`[popup] 下载 Markdown，文件名=${filename}`);
     const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
