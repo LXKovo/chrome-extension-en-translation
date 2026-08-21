@@ -31,8 +31,8 @@ export interface ErrorResponse {
   error: string;
 }
 
-/** 提取文章响应 */
-export type ExtractArticleResponse = OkResponse<ExtractResult>;
+/** 提取文章响应（成功携带数据，失败携带错误信息） */
+export type ExtractArticleResponse = OkResponse<ExtractResult> | ErrorResponse;
 
 /** 所有跨层消息响应的联合类型 */
 export type MessageResponse = ExtractArticleResponse | ErrorResponse;

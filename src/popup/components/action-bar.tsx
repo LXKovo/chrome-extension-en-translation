@@ -12,9 +12,19 @@ interface ActionBarProps {
   onModelChange: (model: string) => void;
   /** 「下载 Markdown」是否禁用（无结果时置灰） */
   isDownloadDisabled: boolean;
+  /** 点击「一键翻译本文」（T3 临时对接内容脚本提取，T6 改为完整翻译流程） */
+  onExtract: () => void;
+  /** 提取进行中，禁用触发按钮 */
+  isExtracting: boolean;
 }
 
-export default function ActionBar({ model, onModelChange, isDownloadDisabled }: ActionBarProps) {
+export default function ActionBar({
+  model,
+  onModelChange,
+  isDownloadDisabled,
+  onExtract,
+  isExtracting,
+}: ActionBarProps) {
   return (
     <section className="action-bar">
       <div className="action-bar__model">
@@ -35,7 +45,12 @@ export default function ActionBar({ model, onModelChange, isDownloadDisabled }: 
         </select>
       </div>
 
-      <button type="button" className="button button--primary">
+      <button
+        type="button"
+        className="button button--primary"
+        onClick={onExtract}
+        disabled={isExtracting}
+      >
         🔄 一键翻译本文
       </button>
 
