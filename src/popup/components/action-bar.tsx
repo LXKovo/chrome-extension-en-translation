@@ -20,6 +20,8 @@ interface ActionBarProps {
   onTranslate: () => void;
   /** 点击「停止」 */
   onStop: () => void;
+  /** 点击「下载 Markdown」（无结果时按钮禁用，不触发） */
+  onDownload: () => void;
 }
 
 export default function ActionBar({
@@ -30,6 +32,7 @@ export default function ActionBar({
   isTranslating,
   onTranslate,
   onStop,
+  onDownload,
 }: ActionBarProps) {
   return (
     <section className="action-bar">
@@ -67,7 +70,12 @@ export default function ActionBar({
         </button>
       )}
 
-      <button type="button" className="button button--secondary" disabled={isDownloadDisabled}>
+      <button
+        type="button"
+        className="button button--secondary"
+        disabled={isDownloadDisabled}
+        onClick={onDownload}
+      >
         ⬇️ 下载 Markdown
       </button>
     </section>

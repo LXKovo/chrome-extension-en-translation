@@ -16,8 +16,16 @@ interface MainViewProps {
 }
 
 export default function MainView({ model, onModelChange }: MainViewProps) {
-  const { status, markdown, errorMessage, isBusy, isTranslating, startTranslate, stopTranslate } =
-    useTranslation({ model });
+  const {
+    status,
+    markdown,
+    errorMessage,
+    isBusy,
+    isTranslating,
+    startTranslate,
+    stopTranslate,
+    downloadMarkdown,
+  } = useTranslation({ model });
 
   return (
     <>
@@ -29,6 +37,7 @@ export default function MainView({ model, onModelChange }: MainViewProps) {
         isTranslating={isTranslating}
         onTranslate={startTranslate}
         onStop={stopTranslate}
+        onDownload={downloadMarkdown}
       />
       <StatusBar status={status} />
       {errorMessage ? (

@@ -26,10 +26,17 @@ const CHARS_PER_TICK = 3;
 /** 打字机 tick 间隔（毫秒），约 60fps */
 const TICK_INTERVAL_MS = 16;
 
-/** 流翻译涉及的元数据（作者 / 原文链接），由插件后处理补全，不经模型 */
+/** 流翻译涉及的元数据（标题 / 作者 / 原文链接），标题亦用于下载文件名，均由插件后处理取得，不经模型 */
 interface Metadata {
+  title: string;
   author: string;
   url: string;
+}
+
+/** 文件名非法字符（Windows / macOS / 通用）；替换为下划线并限制长度 */
+function sanitizeFilename(name: string): string {
+  const cleaned = name.replace(/[\\/:*?"<>|]/g, '_').trim();
+  return cleaned.slice(0, 80);
 }
 
 /** 结果区待渲染的 Markdown 字符串 */
@@ -41,6 +48,7 @@ export interface UseTranslationReturn {
   isTranslating: boolean;
   startTranslate: () => void;
   stopTranslate: () => void;
+  downloadMarkdown: () => void;
 }
 
 /**
@@ -65,7 +73,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
 
   const [status, setStatus] = useState<TranslationStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [meta, setMeta] = useState<Metadata>({ author: '', url: '' });
+  const [meta, setMeta] = useState<Metadata>({ title: '', author: '', url: '' });
   // 打字机已释放的部分（驱动渲染），原始流数据保存在 ref，避免每字符重渲染
   const [unfoldedRaw, setUnfoldedRaw] = useState('');
 
@@ -207,7 +215,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       const { title, author, url, markdown: body } = response.data;
       // 翻译输入为「标题 + 正文」Markdown，标题一并译为中文；作者/原文链接由插件后处理补全
       const source = `${title ? `# ${title}` : ''}\n\n${body}`.trim();
-      beginStream(source, { author, url });
+      beginStream(source, { title, author, url });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '提取失败');
       setStatus('error');
@@ -236,5 +244,33 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
   const isBusy = status === 'extracting' || status === 'translating';
   const isTranslating = status === 'translating';
 
-  return { status, markdown, errorMessage, isBusy, isTranslating, startTranslate, stopTranslate };
+  /**
+   * 下载当前 Markdown 为 `.md` 文件（T7）。
+   * 文件名使用文章标题（净化非法字符），标题缺失时以时间戳兜底；无结果时不产生下载。
+   */
+  const downloadMarkdown = useCallback(() => {
+    if (!markdown) {
+      return;
+    }
+    const safeTitle = sanitizeFilename(meta.title);
+    const filename = safeTitle ? `${safeTitle}.md` : `translation-${Date.now()}.md`;
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [markdown, meta.title]);
+
+  return {
+    status,
+    markdown,
+    errorMessage,
+    isBusy,
+    isTranslating,
+    startTranslate,
+    stopTranslate,
+    downloadMarkdown,
+  };
 }
