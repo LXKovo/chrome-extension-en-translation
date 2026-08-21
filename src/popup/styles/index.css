@@ -34,6 +34,7 @@ body {
 }
 
 .app {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -188,7 +189,7 @@ body {
   color: var(--color-text-muted);
 }
 
-/* 设置视图（T2 占位，T4 实现完整表单） */
+/* 设置视图表单（T4） */
 .settings-view {
   flex: 1;
   min-height: 0;
@@ -196,7 +197,111 @@ body {
   overflow-y: auto;
 }
 
-.settings-view__placeholder {
-  margin: 0;
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-form__label {
+  font-size: 13px;
   color: var(--color-text-muted);
+}
+
+.settings-form__input,
+.settings-form__select {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  color: inherit;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.settings-form__input--error {
+  border-color: #b91c1c;
+}
+
+.settings-form__key-row {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-form__key-row .settings-form__input {
+  flex: 1;
+}
+
+.settings-form__key-toggle {
+  flex: none;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.settings-form__key-toggle:hover {
+  color: var(--color-text);
+}
+
+.settings-form__hint {
+  margin: 0;
+  font-size: 12px;
+}
+
+.settings-form__hint--error {
+  color: #b91c1c;
+}
+
+.settings-form__error {
+  margin: 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.settings-form__save {
+  margin-top: 4px;
+}
+
+.settings-form__privacy {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* 保存成功提示 Toast */
+.toast {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(31, 41, 55, 0.92);
+  border-radius: 6px;
+  pointer-events: none;
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }

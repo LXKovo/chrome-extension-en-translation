@@ -35,9 +35,12 @@ export const DEFAULT_SETTINGS: Settings = {
   model: 'deepseek-v4-flash',
 };
 
-/** 模型选项（设置页「默认模型」下拉） */
+/** 模型选项（设置页「默认模型」下拉 / 主页面操作区模型下拉） */
 export const MODEL_OPTIONS: ModelOption[] = [
   { value: 'deepseek-v4-flash', label: 'deepseek-v4-flash' },
   { value: 'deepseek-v4-pro', label: 'deepseek-v4-pro' },
-  { value: 'qwen', label: 'qwen' },
+  { value: 'qwen-turbo', label: 'qwen-turbo' },
+  { value: 'qwen-plus', label: 'qwen-plus' },
+  { value: 'qwen-max', label: 'qwen-max' },
+  { value: 'qwen-long', label: 'qwen-long' },
 ];

@@ -2,9 +2,10 @@
  * 主视图：组合「操作区 / 状态区 / 结果区」三块。
  * T3 阶段把「一键翻译本文」临时对接内容脚本提取，用于验证提取链路结果
  * （标题 / 作者 / URL / 正文 / 图片语法），T6 将替换为完整翻译流程。
+ * 模型选择由 App 统一管理（T4），与设置页「默认模型」联动。
  */
 import { useState } from 'react';
-import { DEFAULT_SETTINGS, MESSAGE_EXTRACT_ARTICLE } from '../../shared/constants';
+import { MESSAGE_EXTRACT_ARTICLE } from '../../shared/constants';
 import type { ExtractArticleRequest, ExtractArticleResponse } from '../../shared/message';
 import ActionBar from './action-bar';
 import ResultView from './result-view';
@@ -15,9 +16,14 @@ function buildMarkdown(title: string, author: string, url: string, body: string)
   return `# ${title || '无标题'}\n\n> 作者：${author || '未知'}\n> 原文链接：${url}\n\n${body}`;
 }
 
-export default function MainView() {
-  // T4 会把模型选择改为与 settings 联动，这里先用默认值维持交互可用
-  const [model, setModel] = useState(DEFAULT_SETTINGS.model);
+interface MainViewProps {
+  /** 当前选中的模型（来自 App，与设置页「默认模型」联动） */
+  model: string;
+  /** 切换模型 */
+  onModelChange: (model: string) => void;
+}
+
+export default function MainView({ model, onModelChange }: MainViewProps) {
   // T3 临时演示：保存提取到的 Markdown，脱离静态示例
   const [markdown, setMarkdown] = useState('');
   const [status, setStatus] = useState<TranslationStatus>('idle');
@@ -55,7 +61,7 @@ export default function MainView() {
     <>
       <ActionBar
         model={model}
-        onModelChange={setModel}
+        onModelChange={onModelChange}
         isDownloadDisabled={!markdown}
         onExtract={handleExtract}
         isExtracting={status === 'extracting'}
