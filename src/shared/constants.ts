@@ -16,6 +16,9 @@ export const MESSAGE_EXTRACT_ARTICLE = 'extract-article' as const;
 /** 消息名：停止流式翻译 */
 export const MESSAGE_STOP_TRANSLATE = 'stop-translate' as const;
 
+/** Port 消息名：发起流式翻译（携带 Markdown 原文） */
+export const MESSAGE_TRANSLATE_REQUEST = 'translate-request' as const;
+
 /** Port 通道名：翻译流式增量推送 */
 export const PORT_TRANSLATE_STREAM = 'translate-stream' as const;
 
