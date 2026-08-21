@@ -107,7 +107,12 @@ export default function App() {
           onDirtyChange={handleSettingsDirtyChange}
         />
       ) : (
-        <MainView model={model} onModelChange={setModel} />
+        <MainView
+          model={model}
+          onModelChange={setModel}
+          hasApiKey={Boolean(settings.apiKey.trim())}
+          onOpenSettings={() => setView('settings')}
+        />
       )}
       {toast ? <div className="toast">{toast}</div> : null}
     </div>

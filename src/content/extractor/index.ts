@@ -79,6 +79,9 @@ function parseArticle(doc: Document): ParsedArticle {
 export function extractArticle(doc: Document): ExtractResult | null {
   const { content: rawContent, title, byline } = parseArticle(doc);
   if (!rawContent) {
+    console.warn(
+      '[extractor] 未能提取到正文：Readability 与 <article>/<main> 语义标签均未解析出内容',
+    );
     return null;
   }
 
@@ -91,6 +94,9 @@ export function extractArticle(doc: Document): ExtractResult | null {
 
   const markdown = turndownService.turndown(container);
   if (!markdown.trim()) {
+    console.warn(
+      '[extractor] 提取失败：页面结构被解析出内容，但转 Markdown 后为空（可能正文过少或纯空白/纯脚本）',
+    );
     return null;
   }
 

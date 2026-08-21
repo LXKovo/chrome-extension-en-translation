@@ -23,12 +23,24 @@ chrome.runtime.onMessage.addListener(
     }
 
     let response: ExtractArticleResponse;
+    console.log('[content] 收到提取请求，url=', location.href);
     try {
       const result = extractArticle(document);
-      response = result
-        ? { ok: true, data: result }
-        : { ok: false, error: '无法识别当前页面的正文，请切换至可阅读的英文文章再试' };
+      if (result) {
+        console.log('[content] 提取成功', {
+          title: result.title,
+          author: result.author,
+          markdownLength: result.markdown.length,
+        });
+        response = { ok: true, data: result };
+      } else {
+        console.warn(
+          '[content] 提取失败：未能识别到正文（readability/semantic 均无内容或转 Markdown 后为空）',
+        );
+        response = { ok: false, error: '无法识别当前页面的正文，请切换至可阅读的英文文章再试' };
+      }
     } catch (error) {
+      console.warn('[content] 提取异常', error);
       response = toResponse(error);
     }
 

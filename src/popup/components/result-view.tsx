@@ -8,13 +8,30 @@ import { MarkdownRenderer } from 'md-wx';
 interface ResultViewProps {
   /** 待渲染的 Markdown；为空时展示空态提示 */
   markdown: string;
+  /** 是否已配置 API Key；未配置时空态引导进入设置页（T9） */
+  hasApiKey: boolean;
+  /** 点击空态「去设置」按钮，跳转设置视图 */
+  onOpenSettings: () => void;
 }
 
-export default function ResultView({ markdown }: ResultViewProps) {
+export default function ResultView({ markdown, hasApiKey, onOpenSettings }: ResultViewProps) {
   if (!markdown) {
     return (
       <section className="result-view result-view--empty">
-        <p className="result-view__empty-text">将当前英文文章一键翻译为中文 Markdown</p>
+        {hasApiKey ? (
+          <p className="result-view__empty-text">将当前英文文章一键翻译为中文 Markdown</p>
+        ) : (
+          <div className="result-view__empty">
+            <p className="result-view__empty-text">尚未配置 API Key，配置后即可一键翻译</p>
+            <button
+              type="button"
+              className="button button--secondary result-view__empty-action"
+              onClick={onOpenSettings}
+            >
+              去设置
+            </button>
+          </div>
+        )}
       </section>
     );
   }

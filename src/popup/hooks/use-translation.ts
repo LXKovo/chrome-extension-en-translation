@@ -87,10 +87,16 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
   const [restoredMarkdown, setRestoredMarkdown] = useState('');
   // 恢复结果的完成时间戳，用于状态区「上次翻译于」提示
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  // 错误时回退展示的既有结果：翻译失败时不覆盖上次已有结果（T9）
+  const [fallbackMarkdown, setFallbackMarkdown] = useState('');
 
   const portRef = useRef<chrome.runtime.Port | null>(null);
   const rawRef = useRef('');
   const cursorRef = useRef(0);
+  // 当前实际展示的 Markdown（随渲染更新），供开始新翻译前快照；错误时用于回退保留上次结果
+  const latestMarkdownRef = useRef('');
+  // 开始新翻译前对上一步已有结果的快照
+  const savedMarkdownRef = useRef('');
   const timerRef = useRef<number | undefined>(undefined);
   // 流已结束但仍需让打字机追平剩余内容，追平后再标记「完成」
   const completionPendingRef = useRef(false);
@@ -107,6 +113,13 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       // 断开连接会触发后台 onDisconnect，从而中断底层流式请求
       portRef.current.disconnect();
       portRef.current = null;
+    }
+  }, []);
+
+  /** 翻译失败时回退到本次翻译前已有的结果，避免覆盖上次结果（T9） */
+  const restorePrevious = useCallback(() => {
+    if (savedMarkdownRef.current) {
+      setFallbackMarkdown(savedMarkdownRef.current);
     }
   }, []);
 
@@ -154,12 +167,13 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
           break;
         case STREAM_EVENT_ERROR:
           setErrorMessage(event.error);
+          restorePrevious();
           setStatus('error');
           closePort();
           break;
       }
     },
-    [ensureTimer, closePort],
+    [ensureTimer, restorePrevious, closePort],
   );
 
   /** 启动流式翻译：重置缓冲区、建立 Port、推送翻译请求 */
@@ -171,6 +185,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       completionPendingRef.current = false;
       setUnfoldedRaw('');
       setRestoredMarkdown('');
+      setFallbackMarkdown('');
       setRestoredAt(null);
       setMeta(nextMeta);
       setErrorMessage('');
@@ -210,17 +225,26 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
     if (status === 'extracting' || status === 'translating') {
       return;
     }
+    // 快照本次翻译前的已有结果，翻译失败时回退展示，不覆盖上次结果（T9）
+    savedMarkdownRef.current = latestMarkdownRef.current;
     setStatus('extracting');
     setErrorMessage('');
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      console.log('[popup] 查询到活动标签页', tab?.id, location.href);
       if (!tab?.id) {
         throw new Error('未找到当前活动标签页');
       }
       const request: ExtractArticleRequest = { type: MESSAGE_EXTRACT_ARTICLE };
+      console.log('[popup] 向内容脚本发送提取请求 tabId=', tab.id);
       const response = await chrome.tabs.sendMessage<ExtractArticleRequest, ExtractArticleResponse>(
         tab.id,
         request,
+      );
+      console.log(
+        '[popup] 收到提取响应 ok=',
+        response.ok,
+        response.ok ? undefined : response.error,
       );
       if (!response.ok) {
         throw new Error(response.error);
@@ -230,10 +254,14 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       const source = `${title ? `# ${title}` : ''}\n\n${body}`.trim();
       beginStream(source, { title, author, url });
     } catch (error) {
+      // 注意：sendMessage 在页面未注入内容脚本时也会 reject（报 “Receiving end does not exist” 等），
+      // 此处一并记录原始错误供排查，避免仅显示灰化后的可读文案
+      console.warn('[popup] 提取失败', error);
       setErrorMessage(error instanceof Error ? error.message : '提取失败');
+      restorePrevious();
       setStatus('error');
     }
-  }, [status, beginStream]);
+  }, [status, beginStream, restorePrevious]);
 
   /** 停止：中断流式请求并立即显示已生成内容 */
   const stopTranslate = useCallback(() => {
@@ -280,8 +308,11 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
   }, []);
 
   // 结果区 Markdown：随打字机进度增长，并为「标题 → 作者/链接 → 正文」补全元数据行；
-  // 若为恢复的上次结果，则直接采用已含完整头部的最终内容，避免重复插入元数据行
-  const markdown = restoredMarkdown || insertHeaderLines(unfoldedRaw, meta.author, meta.url);
+  // 优先顺序：错误回退结果 > 恢复的上次结果 > 打字机实况（恢复结果已含完整头部，避免重复插入元数据行）
+  const markdown =
+    fallbackMarkdown || restoredMarkdown || insertHeaderLines(unfoldedRaw, meta.author, meta.url);
+  // 记录当前实际展示的内容，供「开始新翻译 → 失败回退」快照使用
+  latestMarkdownRef.current = markdown;
   const isBusy = status === 'extracting' || status === 'translating';
   const isTranslating = status === 'translating';
 

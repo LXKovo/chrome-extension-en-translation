@@ -13,9 +13,18 @@ interface MainViewProps {
   model: string;
   /** 切换模型 */
   onModelChange: (model: string) => void;
+  /** 是否已配置 API Key；未配置时空态引导进入设置页（T9） */
+  hasApiKey: boolean;
+  /** 点击空态「去设置」按钮，跳转设置视图 */
+  onOpenSettings: () => void;
 }
 
-export default function MainView({ model, onModelChange }: MainViewProps) {
+export default function MainView({
+  model,
+  onModelChange,
+  hasApiKey,
+  onOpenSettings,
+}: MainViewProps) {
   const {
     status,
     markdown,
@@ -44,7 +53,7 @@ export default function MainView({ model, onModelChange }: MainViewProps) {
       {errorMessage ? (
         <div className="status-bar status-bar--error status-bar--detail">{errorMessage}</div>
       ) : null}
-      <ResultView markdown={markdown} />
+      <ResultView markdown={markdown} hasApiKey={hasApiKey} onOpenSettings={onOpenSettings} />
     </>
   );
 }

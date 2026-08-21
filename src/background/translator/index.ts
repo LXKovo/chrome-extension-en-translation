@@ -3,7 +3,7 @@
  * 通过配置 baseURL / model / apiKey 即可在 DeepSeek、通义千问等兼容端点间切换，
  * 业务层不关心具体模型提供商。
  */
-import OpenAI from 'openai';
+import OpenAI, { APIError } from 'openai';
 import type { Settings } from '../../shared/types';
 
 /** 流式翻译回调：增量 / 完成 / 错误 */
@@ -22,6 +22,33 @@ const SYSTEM_PROMPT = [
   '3. 图片语法 ![alt](src) 原样保留，不对其做任何翻译或改动。',
   '4. 仅输出翻译后的中文 Markdown，不要输出任何额外说明文字。',
 ].join('\n');
+
+/**
+ * 将底层 SDK / 网络错误映射为面向用户的可读中文文案（docs/design.md §10.4）。
+ * 覆盖鉴权失败、额度不足、网络错误等常见失败场景，避免直接暴露英文技术信息。
+ */
+function toReadableError(error: unknown): string {
+  if (error instanceof APIError) {
+    const code = typeof error.code === 'string' ? error.code.toLowerCase() : '';
+    const status = error.status;
+    if (status === 401 || code.includes('invalid_api_key') || code.includes('auth')) {
+      return '鉴权失败：API Key 无效或已过期，请到设置页检查后重试';
+    }
+    if (status === 429 || code.includes('insufficient_quota') || code.includes('rate_limit')) {
+      return '额度不足或请求过于频繁：请检查账户余额或稍后重试';
+    }
+    if (status === 400) {
+      return '请求不合法：请检查模型名称与翻译内容（正文可能过长或模型不支持）';
+    }
+    return `模型服务错误（${status}）：${error.message}`;
+  }
+
+  const message = error instanceof Error ? error.message : '翻译请求失败';
+  if (/failed to fetch|network|econnreset|econnrefused|enotfound|timeout|aborted/i.test(message)) {
+    return '网络错误：无法连接模型服务，请检查 API 地址与网络连接';
+  }
+  return message;
+}
 
 /**
  * 以流式方式调用 OpenAI 兼容接口翻译 Markdown 原文。
@@ -61,10 +88,10 @@ export async function streamTranslate(
 
     callbacks.onDone();
   } catch (error) {
-    // 主动取消时终止容器选择，避免上层将其当作真实错误；其余错误交由调用方可读化
+    // 主动取消时终止容器选择，避免上层将其当作真实错误；其余错误映射为可读文案上报
     if (abort?.aborted) {
       return;
     }
-    callbacks.onError(error instanceof Error ? error : new Error('翻译请求失败'));
+    callbacks.onError(new Error(toReadableError(error)));
   }
 }
