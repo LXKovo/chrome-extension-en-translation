@@ -6,7 +6,9 @@
 import {
   MESSAGE_STOP_TRANSLATE,
   MESSAGE_TRANSLATE_REQUEST,
+  MODEL_VENDOR_BASE_URLS,
   PORT_TRANSLATE_STREAM,
+  resolveVendorBaseURL,
   STREAM_EVENT_CHUNK,
   STREAM_EVENT_DONE,
   STREAM_EVENT_ERROR,
@@ -14,6 +16,38 @@ import {
 import type { MessageRequest, StreamEvent, TranslateRequest } from '../shared/message';
 import { readSettings } from './storage';
 import { streamTranslate } from './translator';
+
+/**
+ * 翻译前校正 baseURL：切换了模型厂商却未同步修改 API 地址是「无结果」的常见诱因。
+ * 仅在「当前 baseURL 属于已知厂商默认值、且与所选模型不匹配」时才覆盖为推荐地址；
+ * 用户自定的代理/中转地址（非默认值）不做改动，避免破坏私有部署。
+ */
+function adjustBaseURLForModel(
+  baseURL: string,
+  model: string,
+): { baseURL: string; adjusted: boolean } {
+  const recommended = resolveVendorBaseURL(model);
+  if (!recommended) {
+    return { baseURL, adjusted: false };
+  }
+  // 当前地址已经是该模型推荐的地址，无需处理
+  const normalized = baseURL.replace(/\/+$/, '');
+  const normalizedRecommended = recommended.replace(/\/+$/, '');
+  if (normalized === normalizedRecommended) {
+    return { baseURL, adjusted: false };
+  }
+  // 当前地址属于其它已知厂商的默认值 → 典型的「切了模型没改地址」，自动改到推荐地址
+  const knownDefaults = new Set(
+    Object.values(MODEL_VENDOR_BASE_URLS).map((v) => v.replace(/\/+$/, '')),
+  );
+  if (knownDefaults.has(normalized)) {
+    console.warn(
+      `[background] 检测到 baseURL=${baseURL} 与模型=${model} 分属不同厂商，已自动校正为推荐地址=${recommended}；若你使用私有部署请在设置页填写自定义地址`,
+    );
+    return { baseURL: recommended, adjusted: true };
+  }
+  return { baseURL, adjusted: false };
+}
 
 /** 当前翻译流的中止控制器：用于「停止翻译」「Popup 断开」时中断底层请求 */
 let currentAbortController: AbortController | null = null;
@@ -66,18 +100,34 @@ async function runTranslation(port: chrome.runtime.Port, request: TranslateReque
     // 优先使用主页面选中的模型，未指定时回退到设置页「默认模型」
     const effectiveSettings = request.model ? { ...settings, model: request.model } : settings;
 
+    // 关键健壮性补充：防止 qwen/deepseek 模型与 API 地址不匹配导致请求一直无响应/400
+    const adjusted = adjustBaseURLForModel(effectiveSettings.baseURL, effectiveSettings.model);
+    effectiveSettings.baseURL = adjusted.baseURL;
+
+    // 关键节点：翻译请求启动前打印最终生效配置（仅记录 baseURL 域名与模型，绝不打印 API Key）
+    console.log(
+      `[background] 准备调用翻译：model=${effectiveSettings.model}，baseURL=${effectiveSettings.baseURL}，原文=${request.markdown.length} 字符`,
+    );
+
     await streamTranslate(
       effectiveSettings,
       request.markdown,
       {
         onDelta: (delta: string) => post(port, { type: STREAM_EVENT_CHUNK, delta }),
-        onDone: () => post(port, { type: STREAM_EVENT_DONE }),
-        onError: (error: Error) => post(port, { type: STREAM_EVENT_ERROR, error: error.message }),
+        onDone: () => {
+          console.log('[background] 流式翻译正常完成，推送 DONE');
+          post(port, { type: STREAM_EVENT_DONE });
+        },
+        onError: (error: Error) => {
+          console.warn('[background] 流式翻译报错，准备推送 ERROR：', error.message);
+          post(port, { type: STREAM_EVENT_ERROR, error: error.message });
+        },
       },
       controller.signal,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : '翻译失败';
+    console.warn('[background] runTranslation 顶层捕获异常，推送 ERROR：', message);
     post(port, { type: STREAM_EVENT_ERROR, error: message });
   }
 }

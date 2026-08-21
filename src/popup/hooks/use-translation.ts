@@ -225,11 +225,34 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       port.onMessage.addListener(onMessage);
       port.onDisconnect.addListener(() => {
         // 关键节点：连接被后台回收或主动停止
-        console.log('[popup] 翻译 Port 已断开');
-        // 连接断开（后台回收 / 主动停止），清理引用即可
+        console.log('[popup] 翻译 Port 已断开，status=', status);
+        // 连接断开（后台回收 / 主动停止 / 未捕获异常），若仍处于 translating 状态需兜底收敛，
+        // 避免 UI 永远卡在「正在翻译…」却没有任何增量或错误提示
         if (portRef.current === port) {
           portRef.current = null;
         }
+        // 只有在 translating 时兜底；error/done/idle 都不需要动
+        setStatus((prev) => {
+          if (prev !== 'translating') {
+            return prev;
+          }
+          // 完全没收到过任何增量：视为后台异常，给一个可读错误并回退上次结果
+          if (!rawRef.current) {
+            console.warn(
+              '[popup] 后台连接意外断开且未收到任何翻译内容，已回退并标记错误，请检查模型/API配置或查看 Service Worker 日志',
+            );
+            setErrorMessage(
+              '后台连接意外断开：请检查 API 地址与模型是否匹配，或稍后重试（可查看扩展 Service Worker 控制台获取详细错误）',
+            );
+            restorePrevious();
+            return 'error';
+          }
+          // 收到过部分内容：立即 flush 已生成的部分并标记完成，便于用户查看已翻译的段落
+          console.log(`[popup] 后台连接断开，保留已生成的 ${rawRef.current.length} 字符并标记完成`);
+          completionPendingRef.current = false;
+          flushUnfolded();
+          return 'done';
+        });
       });
 
       const request: TranslateRequest = {
@@ -257,16 +280,93 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
     setErrorMessage('');
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      console.log('[popup] 查询到活动标签页', tab?.id, location.href);
+      console.log('[popup] 查询到活动标签页', tab?.id, tab?.url);
       if (!tab?.id) {
         throw new Error('未找到当前活动标签页');
       }
+      // 提前提取 tabId：供嵌套闭包使用，避免 TS 在异步函数内无法收窄 `tab.id` 的 `undefined` 分支
+      const tabId = tab.id;
+
       const request: ExtractArticleRequest = { type: MESSAGE_EXTRACT_ARTICLE };
-      console.log('[popup] 向内容脚本发送提取请求 tabId=', tab.id);
-      const response = await chrome.tabs.sendMessage<ExtractArticleRequest, ExtractArticleResponse>(
-        tab.id,
-        request,
-      );
+
+      // 向 content script 发提取消息；若遭遇经典的「Receiving end does not exist」
+      // （典型场景：刚重新加载扩展，但目标页面尚未刷新 → 老页面上没有新的 content script 监听器）
+      // → 先用 chrome.scripting.executeScript 动态注入 manifest 中声明的 content scripts，再重试。
+      // 注意：@crxjs/vite-plugin 的 content script 使用异步 loader（动态 import 实际模块），
+      // executeScript .resolve 时 loader 的同步部分已执行，但异步 import 尚未完成、消息监听器还未注册，
+      // 因此单次重试会竞态失败；这里使用「短暂延迟 + 多次重试」等待监听器就绪。
+      const MAX_RETRY_ATTEMPTS = 10;
+      const RETRY_INTERVAL_MS = 100;
+
+      async function sendExtractRequest(): Promise<ExtractArticleResponse> {
+        async function sendOnce(): Promise<ExtractArticleResponse> {
+          console.log('[popup] 向内容脚本发送提取请求 tabId=', tabId);
+          return await chrome.tabs.sendMessage<ExtractArticleRequest, ExtractArticleResponse>(
+            tabId,
+            request,
+          );
+        }
+
+        try {
+          return await sendOnce();
+        } catch (sendError) {
+          const msg = sendError instanceof Error ? sendError.message : String(sendError);
+          if (!/Receiving end does not exist|Could not establish connection/i.test(msg)) {
+            throw sendError;
+          }
+          console.warn('[popup] 页面无 content script 监听器，尝试动态注入后重试。原始错误=', msg);
+          const manifest = chrome.runtime.getManifest();
+          const files = manifest.content_scripts?.[0]?.js ?? [];
+          if (files.length === 0) {
+            throw new Error('扩展清单中未找到 content script 配置，请检查 manifest.json');
+          }
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId },
+              files,
+            });
+          } catch (injectError) {
+            const injectMsg =
+              injectError instanceof Error ? injectError.message : String(injectError);
+            // 受限页面：chrome:// / chrome 商店 / PDF / 扩展自身页面
+            if (
+              /Cannot access|chrome-error|extensions gallery|The extensions gallery|Not allowed to access|no access/i.test(
+                injectMsg,
+              )
+            ) {
+              throw new Error(
+                '当前页面（浏览器内置页/Chrome 商店/PDF 等）无法提取正文，请打开普通英文网页后重试',
+              );
+            }
+            throw new Error(`动态注入内容脚本失败：${injectMsg}`);
+          }
+          console.log('[popup] content script 已动态注入，等待监听器就绪后重试...');
+
+          // 等待 content script 异步 loader 完成模块加载与监听器注册，带重试
+          let lastError: unknown;
+          for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL_MS));
+            try {
+              return await sendOnce();
+            } catch (retryError) {
+              lastError = retryError;
+              const retryMsg =
+                retryError instanceof Error ? retryError.message : String(retryError);
+              // 只有「接收端不存在」才继续重试，其他错误直接抛出
+              if (!/Receiving end does not exist|Could not establish connection/i.test(retryMsg)) {
+                throw retryError;
+              }
+              console.log(`[popup] 第 ${attempt + 1} 次重试仍未连接到 content script，继续等待...`);
+            }
+          }
+          // 所有重试均失败，抛出最后一次错误
+          const finalMsg = lastError instanceof Error ? lastError.message : '无法连接到内容脚本';
+          throw new Error(`动态注入内容脚本后仍无法通信：${finalMsg}。请刷新当前页面后重试。`);
+        }
+      }
+
+      const response = await sendExtractRequest();
+
       console.log(
         '[popup] 收到提取响应 ok=',
         response.ok,

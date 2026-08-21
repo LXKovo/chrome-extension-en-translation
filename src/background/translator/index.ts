@@ -50,6 +50,9 @@ function toReadableError(error: unknown): string {
   return message;
 }
 
+/** 流式翻译的整体超时（毫秒）：避免 API 服务端无响应时无限等待（§10.4 健壮性补充） */
+const STREAM_TIMEOUT_MS = 120_000;
+
 /**
  * 以流式方式调用 OpenAI 兼容接口翻译 Markdown 原文。
  * abort 可选：传入即可支持「停止翻译」中断底层请求（docs/design.md §5.2 / §6）。
@@ -63,7 +66,35 @@ export async function streamTranslate(
   const client = new OpenAI({
     baseURL: settings.baseURL,
     apiKey: settings.apiKey,
+    dangerouslyAllowBrowser: true,
   });
+
+  // 组合中止信号：用户主动 abort + 超时 abort，任一触发即中断
+  const timeoutController = new AbortController();
+  const combined = abort
+    ? (() => {
+        const ctrl = new AbortController();
+        const onAbort = () => ctrl.abort();
+        abort.addEventListener('abort', onAbort, { once: true });
+        timeoutController.signal.addEventListener('abort', onAbort, { once: true });
+        return ctrl;
+      })()
+    : timeoutController;
+
+  const timeoutId = setTimeout(() => {
+    timeoutController.abort();
+  }, STREAM_TIMEOUT_MS);
+
+  let timedOut = false;
+  timeoutController.signal.addEventListener(
+    'abort',
+    () => {
+      if (!abort?.aborted) {
+        timedOut = true;
+      }
+    },
+    { once: true },
+  );
 
   try {
     const stream = await client.chat.completions.create(
@@ -75,8 +106,7 @@ export async function streamTranslate(
         ],
         stream: true,
       },
-      // 仅在必要时透传中止信号，让底层请求可被取消
-      { signal: abort },
+      { signal: combined.signal },
     );
 
     for await (const chunk of stream) {
@@ -88,10 +118,20 @@ export async function streamTranslate(
 
     callbacks.onDone();
   } catch (error) {
-    // 主动取消时终止容器选择，避免上层将其当作真实错误；其余错误映射为可读文案上报
+    clearTimeout(timeoutId);
+    // 超时：映射为可读的超时错误，而非当作普通中止忽略
+    if (timedOut) {
+      callbacks.onError(new Error('翻译超时：模型服务长时间未响应，请稍后重试或切换模型'));
+      return;
+    }
+    // 主动取消：仍显式回调 onDone，让上层有机会展示已生成内容并标记完成，避免卡在「正在翻译」
     if (abort?.aborted) {
+      callbacks.onDone();
       return;
     }
     callbacks.onError(new Error(toReadableError(error)));
+    return;
   }
+
+  clearTimeout(timeoutId);
 }

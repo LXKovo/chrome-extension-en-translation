@@ -10,13 +10,13 @@
     "default_title": "英文网页翻译"
   },
   "background": {
-    "service_worker": "src/background/index.ts",
+    "service_worker": "src/background/service-worker.ts",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content/index.ts"],
+      "js": ["src/content/content-script.ts"],
       "run_at": "document_idle"
     }
   ]

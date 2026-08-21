@@ -4,8 +4,20 @@
  * 配置写入 chrome.storage.local 的 settings 键（由 App 统一执行），保存成功返回主页面。
  */
 import { useEffect, useState } from 'react';
-import { MODEL_OPTIONS } from '../../shared/constants';
+import {
+  MODEL_OPTIONS,
+  MODEL_VENDOR_BASE_URLS,
+  resolveVendorBaseURL,
+} from '../../shared/constants';
 import type { Settings } from '../../shared/types';
+
+/** 判断当前地址是否等于任一已知厂商的默认地址（忽略尾斜杠）。
+ * 是 → 视为「用户尚未自定义」，切模型时可安全联动更新；否 → 保留用户自定义，不覆盖。
+ */
+function isKnownVendorDefault(baseURL: string): boolean {
+  const normalized = baseURL.trim().replace(/\/+$/, '');
+  return Object.values(MODEL_VENDOR_BASE_URLS).some((v) => v.replace(/\/+$/, '') === normalized);
+}
 
 interface SettingsViewProps {
   /** 当前选中的模型（作为「默认模型」初值，与主页面下拉联动） */
@@ -93,7 +105,7 @@ export default function SettingsView({
             id="settings-base-url"
             className={`settings-form__input${isBaseURLInvalid ? ' settings-form__input--error' : ''}`}
             type="url"
-            placeholder="https://api.deepseek.com"
+            placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
             value={draft.baseURL}
             onChange={(event) => updateDraft({ baseURL: event.target.value })}
           />
@@ -140,7 +152,16 @@ export default function SettingsView({
             id="settings-model"
             className="settings-form__select"
             value={draft.model}
-            onChange={(event) => updateDraft({ model: event.target.value })}
+            onChange={(event) => {
+              const nextModel = event.target.value;
+              const patch: Partial<Settings> = { model: nextModel };
+              // 切模型时联动推荐地址：仅当 baseURL 仍为任一厂商默认值时覆盖，避免破坏自定义代理/中转地址
+              const recommended = resolveVendorBaseURL(nextModel);
+              if (recommended && isKnownVendorDefault(draft.baseURL)) {
+                patch.baseURL = recommended;
+              }
+              updateDraft(patch);
+            }}
           >
             {MODEL_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -148,6 +169,12 @@ export default function SettingsView({
               </option>
             ))}
           </select>
+          {/* 仅在触发了联动且 draft 已被更新的场景给出提示，减少视觉噪音 */}
+          {resolveVendorBaseURL(draft.model) && isKnownVendorDefault(savedSettings.baseURL) ? (
+            <p className="settings-form__hint">
+              ⓘ 切换模型时已自动匹配推荐 API 地址；若使用私有部署请手动修改上方「API 地址」
+            </p>
+          ) : null}
         </div>
 
         {saveError ? <p className="settings-form__error">{saveError}</p> : null}
