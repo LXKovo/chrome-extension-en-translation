@@ -16,8 +16,9 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "md-wx": "^1.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
@@ -25,8 +26,8 @@
     "@crxjs/vite-plugin": "^2.7.1",
     "@eslint/js": "^9.0.0",
     "@types/chrome": "^0.2.6",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.1.0",
     "eslint": "^9.0.0",
     "eslint-plugin-react-hooks": "^7.1.1",

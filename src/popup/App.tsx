@@ -1,7 +1,26 @@
 /**
- * Popup 根组件（占位）。
- * 后续任务将在此实现主页面布局、视图切换与结果渲染，详见 docs/design.md §6。
+ * Popup 根组件：承载顶栏并在「主视图 / 设置视图」之间切换。
+ * 布局依据 docs/layouts/示意图-主页面.md。
  */
+import { useState } from 'react';
+import AppHeader from './components/app-header';
+import MainView from './components/main-view';
+import SettingsView from './components/settings-view';
+
+type ViewName = 'main' | 'settings';
+
 export default function App() {
-  return <div className="app">扩展已加载</div>;
+  const [view, setView] = useState<ViewName>('main');
+  const isSettingsView = view === 'settings';
+
+  return (
+    <div className="app">
+      <AppHeader
+        isSettingsView={isSettingsView}
+        onOpenSettings={() => setView('settings')}
+        onBack={() => setView('main')}
+      />
+      {isSettingsView ? <SettingsView /> : <MainView />}
+    </div>
+  );
 }

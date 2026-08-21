@@ -11,7 +11,7 @@
 ## 1. 技术栈与语言规范
 
 - **语言**：TypeScript，全程开启严格模式（`strict: true`），显式禁用 `any`（确需时须注释说明）。
-- **框架**：React 19；UI 全部使用函数组件 + Hooks。
+- **框架**：React 18（受 `md-wx` 限制，详见 `design.md` §2）；UI 全部使用函数组件 + Hooks。
 - **平台**：Chrome 扩展（Manifest V3）。
 - **构建**：Vite + `@crxjs/vite-plugin`，多入口打包（content / popup / background）。
 - **渲染**：Markdown 结果统一使用 `md-wx` 的 `MarkdownRenderer`，不自行编写 Markdown 渲染逻辑。

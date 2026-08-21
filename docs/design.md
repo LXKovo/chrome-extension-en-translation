@@ -19,7 +19,7 @@
 | 关注点 | 选型 | 说明 |
 | --- | --- | --- |
 | 插件平台 | **Manifest V3 (MV3)** | Chrome 现行插件规范，Service Worker 化、权限最小化 |
-| 前端框架 | **React 19 + TypeScript** | 组件化 UI，TS 提供强类型保障 |
+| 前端框架 | **React 18 + TypeScript** | 组件化 UI，TS 提供强类型保障；锁定 18 是因为 `md-wx` 内联打包了 React 18 的 jsx-runtime，在 React 19 下加载即报错 |
 | 构建工具 | **Vite**（配合 `@crxjs/vite-plugin` 或等价插件） | 快速构建、HMR、多入口（content/popup/background）打包 |
 | 内容提取 | **`@mozilla/readability`** | 文章主体提取（详见 §4） |
 | HTML → Markdown | **`turndown` + `turndown-plugin-gfm`** | 结构化的 HTML 转 Markdown，GFM 插件支持表格、删除线等 |

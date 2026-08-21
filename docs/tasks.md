@@ -36,7 +36,7 @@
 - **依赖**：无
 - **涉及页面/模块**：无具体页面，全局工程
 - **实现要点**：
-  - 初始化 Vite + `@crxjs/vite-plugin` + React 19 + TypeScript 工程。
+  - 初始化 Vite + `@crxjs/vite-plugin` + React 18 + TypeScript 工程。
   - 配置 ESLint（typescript-eslint + react-hooks）、Prettier、husky + lint-staged、commitlint。
   - 编写 `manifest.json`（MV3；`storage`、`activeTab`、`scripting` 权限 + API 主机访问权限）。
   - 建立目录骨架 `src/{background, content, popup, shared}`，各入口有最小占位实现。

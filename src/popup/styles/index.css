@@ -1,16 +1,202 @@
+/* 弹窗尺寸依据 docs/layouts/示意图-主页面.md §1：宽约 380px、高约 520px。
+   顶栏与操作区固定，结果区占据剩余高度并独立滚动。 */
+
+:root {
+  --color-text: #1f2328;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-bg: #fff;
+  --color-bg-subtle: #f9fafb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  min-width: 320px;
-  min-height: 120px;
+  width: 380px;
+  height: 520px;
   font-family:
     system-ui,
     -apple-system,
     'Segoe UI',
     sans-serif;
-  color: #333;
-  background: #fff;
+  font-size: 14px;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+#root {
+  height: 100%;
 }
 
 .app {
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 顶栏 Header */
+.app-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.app-header__title--right {
+  margin-left: auto;
+}
+
+.header-button {
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: 4px;
+}
+
+.header-button:hover {
+  color: var(--color-text);
+  background: var(--color-bg-subtle);
+}
+
+/* 操作区 ActionBar */
+.action-bar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.action-bar__model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-bar__label {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.action-bar__select {
+  flex: 1;
+  padding: 6px 8px;
+  font: inherit;
+  color: inherit;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.button {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.button--primary {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+}
+
+.button--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.button--secondary {
+  color: var(--color-text);
+  background: var(--color-bg-subtle);
+  border-color: var(--color-border);
+}
+
+.button--secondary:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+/* 状态区 StatusBar */
+.status-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.status-bar__dot {
+  font-size: 10px;
+}
+
+.status-bar--done {
+  color: #15803d;
+}
+
+.status-bar--error {
+  color: #b91c1c;
+}
+
+/* 结果区 ResultView */
+.result-view {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.result-view--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.result-view__empty-text {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+/* 设置视图（T2 占位，T4 实现完整表单） */
+.settings-view {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.settings-view__placeholder {
+  margin: 0;
+  color: var(--color-text-muted);
 }

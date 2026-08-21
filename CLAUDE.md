@@ -9,7 +9,7 @@
 
 ## 技术栈
 
-- TypeScript（严格模式）+ React 19 + Vite（`@crxjs/vite-plugin`）
+- TypeScript（严格模式）+ React 18 + Vite（`@crxjs/vite-plugin`）
 - 内容提取：`@mozilla/readability` + `turndown`（+GFM）+ `dompurify`
 - 翻译：OpenAI 兼容 SDK（可配 `baseURL` / `model`），默认 `deepseek-v4-flash`
 - 渲染：`md-wx`（`MarkdownRenderer`）
