@@ -165,21 +165,21 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
           // 处于关键节点：增量累计跨过每 1000 字符阈值时记录一次，便于排查流是否持续
           if (rawRef.current.length >= nextLogAtRef.current) {
             console.log(
-              `[popup] 收到流式增量，累计收到 ${rawRef.current.length} 字符，本次增量 ${event.delta.length} 字符`,
+              `[sidepanel] 收到流式增量，累计收到 ${rawRef.current.length} 字符，本次增量 ${event.delta.length} 字符`,
             );
             nextLogAtRef.current += 1000;
           }
           ensureTimer();
           break;
         case STREAM_EVENT_DONE:
-          console.log(`[popup] 流式翻译完成，累计收到 ${rawRef.current.length} 字符`);
+          console.log(`[sidepanel] 流式翻译完成，累计收到 ${rawRef.current.length} 字符`);
           nextLogAtRef.current = 1000;
           // 模型已完整输出，等待打字机追平后再由 tick 标记「完成」
           completionPendingRef.current = true;
           ensureTimer();
           break;
         case STREAM_EVENT_ERROR:
-          console.warn('[popup] 流式翻译报错，error=', event.error);
+          console.warn('[sidepanel] 流式翻译报错，error=', event.error);
           nextLogAtRef.current = 1000;
           setErrorMessage(event.error);
           restorePrevious();
@@ -210,7 +210,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       try {
         port = chrome.runtime.connect({ name: PORT_TRANSLATE_STREAM });
       } catch (error) {
-        console.warn('[popup] 建立翻译 Port 失败', error);
+        console.warn('[sidepanel] 建立翻译 Port 失败', error);
         setErrorMessage(error instanceof Error ? error.message : '无法建立翻译连接');
         setStatus('error');
         return;
@@ -218,14 +218,14 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       portRef.current = port;
       // 关键节点：记录连接建立与待翻译内容规模（仅长度，避免打印正文/Key）
       console.log(
-        `[popup] 已建立翻译 Port，请求模型=${model}，原文 ${source.length} 字符，title=${nextMeta.title}`,
+        `[sidepanel] 已建立翻译 Port，请求模型=${model}，原文 ${source.length} 字符，title=${nextMeta.title}`,
       );
 
       const onMessage = (event: StreamEvent) => handleStreamEvent(event);
       port.onMessage.addListener(onMessage);
       port.onDisconnect.addListener(() => {
         // 关键节点：连接被后台回收或主动停止
-        console.log('[popup] 翻译 Port 已断开，status=', status);
+        console.log('[sidepanel] 翻译 Port 已断开，status=', status);
         // 连接断开（后台回收 / 主动停止 / 未捕获异常），若仍处于 translating 状态需兜底收敛，
         // 避免 UI 永远卡在「正在翻译…」却没有任何增量或错误提示
         if (portRef.current === port) {
@@ -239,7 +239,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
           // 完全没收到过任何增量：视为后台异常，给一个可读错误并回退上次结果
           if (!rawRef.current) {
             console.warn(
-              '[popup] 后台连接意外断开且未收到任何翻译内容，已回退并标记错误，请检查模型/API配置或查看 Service Worker 日志',
+              '[sidepanel] 后台连接意外断开且未收到任何翻译内容，已回退并标记错误，请检查模型/API配置或查看 Service Worker 日志',
             );
             setErrorMessage(
               '后台连接意外断开：请检查 API 地址与模型是否匹配，或稍后重试（可查看扩展 Service Worker 控制台获取详细错误）',
@@ -248,7 +248,9 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
             return 'error';
           }
           // 收到过部分内容：立即 flush 已生成的部分并标记完成，便于用户查看已翻译的段落
-          console.log(`[popup] 后台连接断开，保留已生成的 ${rawRef.current.length} 字符并标记完成`);
+          console.log(
+            `[sidepanel] 后台连接断开，保留已生成的 ${rawRef.current.length} 字符并标记完成`,
+          );
           completionPendingRef.current = false;
           flushUnfolded();
           return 'done';
@@ -261,7 +263,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
         model,
       };
       port.postMessage(request);
-      console.log('[popup] 已向后台推送翻译请求');
+      console.log('[sidepanel] 已向后台推送翻译请求');
     },
     [closePort, handleStreamEvent, model],
   );
@@ -269,18 +271,18 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
   /** 一键翻译：提取当前文章 → 拼接标题/正文 → 交由后台流式翻译 */
   const startTranslate = useCallback(async () => {
     if (status === 'extracting' || status === 'translating') {
-      console.warn('[popup] 已在提取/翻译中，忽略重复触发');
+      console.warn('[sidepanel] 已在提取/翻译中，忽略重复触发');
       return;
     }
     // 关键节点：一次新翻译的起点
-    console.log(`[popup] 开始一键翻译，当前模型=${model}`);
+    console.log(`[sidepanel] 开始一键翻译，当前模型=${model}`);
     // 快照本次翻译前的已有结果，翻译失败时回退展示，不覆盖上次结果（T9）
     savedMarkdownRef.current = latestMarkdownRef.current;
     setStatus('extracting');
     setErrorMessage('');
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      console.log('[popup] 查询到活动标签页', tab?.id, tab?.url);
+      console.log('[sidepanel] 查询到活动标签页', tab?.id, tab?.url);
       if (!tab?.id) {
         throw new Error('未找到当前活动标签页');
       }
@@ -300,7 +302,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
 
       async function sendExtractRequest(): Promise<ExtractArticleResponse> {
         async function sendOnce(): Promise<ExtractArticleResponse> {
-          console.log('[popup] 向内容脚本发送提取请求 tabId=', tabId);
+          console.log('[sidepanel] 向内容脚本发送提取请求 tabId=', tabId);
           return await chrome.tabs.sendMessage<ExtractArticleRequest, ExtractArticleResponse>(
             tabId,
             request,
@@ -314,7 +316,10 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
           if (!/Receiving end does not exist|Could not establish connection/i.test(msg)) {
             throw sendError;
           }
-          console.warn('[popup] 页面无 content script 监听器，尝试动态注入后重试。原始错误=', msg);
+          console.warn(
+            '[sidepanel] 页面无 content script 监听器，尝试动态注入后重试。原始错误=',
+            msg,
+          );
           const manifest = chrome.runtime.getManifest();
           const files = manifest.content_scripts?.[0]?.js ?? [];
           if (files.length === 0) {
@@ -340,7 +345,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
             }
             throw new Error(`动态注入内容脚本失败：${injectMsg}`);
           }
-          console.log('[popup] content script 已动态注入，等待监听器就绪后重试...');
+          console.log('[sidepanel] content script 已动态注入，等待监听器就绪后重试...');
 
           // 等待 content script 异步 loader 完成模块加载与监听器注册，带重试
           let lastError: unknown;
@@ -356,7 +361,9 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
               if (!/Receiving end does not exist|Could not establish connection/i.test(retryMsg)) {
                 throw retryError;
               }
-              console.log(`[popup] 第 ${attempt + 1} 次重试仍未连接到 content script，继续等待...`);
+              console.log(
+                `[sidepanel] 第 ${attempt + 1} 次重试仍未连接到 content script，继续等待...`,
+              );
             }
           }
           // 所有重试均失败，抛出最后一次错误
@@ -368,7 +375,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       const response = await sendExtractRequest();
 
       console.log(
-        '[popup] 收到提取响应 ok=',
+        '[sidepanel] 收到提取响应 ok=',
         response.ok,
         response.ok ? undefined : response.error,
       );
@@ -382,7 +389,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
     } catch (error) {
       // 注意：sendMessage 在页面未注入内容脚本时也会 reject（报 “Receiving end does not exist” 等），
       // 此处一并记录原始错误供排查，避免仅显示灰化后的可读文案
-      console.warn('[popup] 提取失败', error);
+      console.warn('[sidepanel] 提取失败', error);
       setErrorMessage(error instanceof Error ? error.message : '提取失败');
       restorePrevious();
       setStatus('error');
@@ -391,7 +398,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
 
   /** 停止：中断流式请求并立即显示已生成内容 */
   const stopTranslate = useCallback(() => {
-    console.log(`[popup] 用户停止翻译，保留已生成 ${rawRef.current.length} 字符`);
+    console.log(`[sidepanel] 用户停止翻译，保留已生成 ${rawRef.current.length} 字符`);
     completionPendingRef.current = false;
     closePort();
     flushUnfolded();
@@ -407,7 +414,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
     [stopTimer, closePort],
   );
 
-  // 打开 Popup 时恢复上次结果（T8）：加载 lastResult 并默认展示，可直接查看或下载
+  // 打开侧边栏时恢复上次结果（T8）：加载 lastResult 并默认展示，可直接查看或下载
   useEffect(() => {
     let cancelled = false;
     const loadLastResult = async () => {
@@ -419,7 +426,7 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
         const stored = result[STORAGE_KEY_LAST_RESULT] as LastResult | undefined;
         if (stored) {
           console.log(
-            `[popup] 恢复上次结果：title=${stored.title}，${stored.markdown.length} 字符`,
+            `[sidepanel] 恢复上次结果：title=${stored.title}，${stored.markdown.length} 字符`,
           );
           setMeta({ title: stored.title, author: stored.author, url: stored.url });
           setRestoredMarkdown(stored.markdown);
@@ -459,10 +466,10 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
       timestamp: Date.now(),
     };
     // 关键节点：记录持久化触发与内容规模
-    console.log(`[popup] 翻译完成，写入 lastResult（${markdown.length} 字符）`);
+    console.log(`[sidepanel] 翻译完成，写入 lastResult（${markdown.length} 字符）`);
     chrome.storage.local
       .set({ [STORAGE_KEY_LAST_RESULT]: lastResult })
-      .then(() => console.log('[popup] lastResult 写入成功'))
+      .then(() => console.log('[sidepanel] lastResult 写入成功'))
       .catch((error) => {
         console.warn('保存上次结果失败', error);
       });
@@ -474,12 +481,12 @@ export function useTranslation(options: { model: string }): UseTranslationReturn
    */
   const downloadMarkdown = useCallback(() => {
     if (!markdown) {
-      console.warn('[popup] 尝试下载但无可用 Markdown，已忽略');
+      console.warn('[sidepanel] 尝试下载但无可用 Markdown，已忽略');
       return;
     }
     const safeTitle = sanitizeFilename(meta.title);
     const filename = safeTitle ? `${safeTitle}.md` : `translation-${Date.now()}.md`;
-    console.log(`[popup] 下载 Markdown，文件名=${filename}`);
+    console.log(`[sidepanel] 下载 Markdown，文件名=${filename}`);
     const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');

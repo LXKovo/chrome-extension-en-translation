@@ -4,6 +4,7 @@
  * T2 仅提供静态结构；交互逻辑：T4（模型联动）/ T6（翻译与停止）/ T7（下载）。
  */
 import { MODEL_OPTIONS } from '../../shared/constants';
+import { DownloadIcon, StopIcon, TranslateIcon } from './icons';
 
 interface ActionBarProps {
   /** 当前选中的模型 */
@@ -57,7 +58,8 @@ export default function ActionBar({
 
       {isTranslating ? (
         <button type="button" className="button button--danger" onClick={onStop}>
-          ⏹ 停止
+          <StopIcon size={16} />
+          <span>停止</span>
         </button>
       ) : (
         <button
@@ -65,8 +67,10 @@ export default function ActionBar({
           className="button button--primary"
           onClick={onTranslate}
           disabled={isBusy}
+          aria-busy={isBusy}
         >
-          🔄 一键翻译本文
+          {isBusy ? <span className="spinner" /> : <TranslateIcon size={17} />}
+          <span>{isBusy ? '正在提取文章…' : '一键翻译本文'}</span>
         </button>
       )}
 
@@ -76,7 +80,8 @@ export default function ActionBar({
         disabled={isDownloadDisabled}
         onClick={onDownload}
       >
-        ⬇️ 下载 Markdown
+        <DownloadIcon size={16} />
+        <span>下载 Markdown</span>
       </button>
     </section>
   );

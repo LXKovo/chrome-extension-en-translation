@@ -3,11 +3,13 @@
   "name": "英文网页翻译",
   "version": "0.1.0",
   "description": "一键提取英文网页正文并翻译为中文，导出 Markdown。",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "sidePanel"],
   "host_permissions": ["<all_urls>"],
   "action": {
-    "default_popup": "index.html",
     "default_title": "英文网页翻译"
+  },
+  "side_panel": {
+    "default_path": "index.html"
   },
   "background": {
     "service_worker": "src/background/service-worker.ts",

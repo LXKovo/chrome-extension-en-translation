@@ -14,7 +14,7 @@
 - **语言**：TypeScript，全程开启严格模式（`strict: true`），显式禁用 `any`（确需时须注释说明）。
 - **框架**：React 18（受 `md-wx` 限制，详见 `design.md` §2）；UI 全部使用函数组件 + Hooks。
 - **平台**：Chrome 扩展（Manifest V3）。
-- **构建**：Vite + `@crxjs/vite-plugin`，多入口打包（content / popup / background）。
+- **构建**：Vite + `@crxjs/vite-plugin`，多入口打包（content / sidepanel / background）。
 - **渲染**：Markdown 结果统一使用 `md-wx` 的 `MarkdownRenderer`，不自行编写 Markdown 渲染逻辑。
 - **翻译**：通过 OpenAI 兼容协议调用（`openai` SDK，可配置 `baseURL` 与 `model`），不写死具体模型提供商。
 
@@ -45,13 +45,13 @@
 src/
 ├── background/   # 后台 Service Worker：消息路由、翻译调用、存储
 ├── content/      # 内容脚本：文章提取与 Markdown 转换
-├── popup/        # 弹窗 UI（React）：交互、打字机展示、md-wx 渲染
+├── sidepanel/    # 侧边栏 UI（React）：交互、打字机展示、md-wx 渲染
 └── shared/       # 跨层共享：类型、常量、消息协议
 ```
 
 - `src/shared/` 只存放**无副作用**的类型、常量与协议定义。
-- `background` / `content` / `popup` 是三个独立运行上下文，**不得直接 import 对方内部实现**，只能通过 `shared` 与 `chrome.runtime` 消息通信。
-- 提取、翻译、展示三大能力分别落在 `content/extractor`、`background/translator`、`popup/hooks`，职责单一、可替换。
+- `background` / `content` / `sidepanel` 是三个独立运行上下文，**不得直接 import 对方内部实现**，只能通过 `shared` 与 `chrome.runtime` 消息通信。
+- 提取、翻译、展示三大能力分别落在 `content/extractor`、`background/translator`、`sidepanel/hooks`，职责单一、可替换。
 
 ## 5. 模块边界与通信规范
 
@@ -61,7 +61,7 @@ src/
 
 ## 6. 安全与隐私原则
 
-- **最小权限**：Manifest 仅申请必要权限（`storage`、`activeTab`、`scripting` 及 API 主机访问）。
+- **最小权限**：Manifest 仅申请必要权限（`storage`、`activeTab`、`scripting`、`sidePanel` 及 API 主机访问）。
 - **净化**：所有从页面提取的 HTML 先经 `dompurify` 净化，再转 Markdown。
 - **密钥安全**：API Key 仅存本地、仅随翻译请求发送至对应端点，日志不输出密钥。
 - **数据最小化**：不采集历史记录、不额外上传用户数据。

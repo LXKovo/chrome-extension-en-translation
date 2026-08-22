@@ -10,6 +10,7 @@ import {
   resolveVendorBaseURL,
 } from '../../shared/constants';
 import type { Settings } from '../../shared/types';
+import { EyeIcon, EyeOffIcon, InfoIcon } from './icons';
 
 /** 判断当前地址是否等于任一已知厂商的默认地址（忽略尾斜杠）。
  * 是 → 视为「用户尚未自定义」，切模型时可安全联动更新；否 → 保留用户自定义，不覆盖。
@@ -97,6 +98,9 @@ export default function SettingsView({
   return (
     <section className="settings-view">
       <div className="settings-form">
+        <h2 className="settings-form__title">翻译服务设置</h2>
+        <p className="settings-form__subtitle">配置 OpenAI 兼容的翻译接口，保存后自动生效</p>
+
         <div className="settings-form__group">
           <label className="settings-form__label" htmlFor="settings-base-url">
             API 地址
@@ -135,8 +139,10 @@ export default function SettingsView({
               type="button"
               className="settings-form__key-toggle"
               onClick={() => setIsKeyVisible((prev) => !prev)}
+              aria-label={isKeyVisible ? '隐藏 API Key' : '显示 API Key'}
             >
-              {isKeyVisible ? '隐藏' : '👁 显示'}
+              {isKeyVisible ? <EyeOffIcon size={15} /> : <EyeIcon size={15} />}
+              <span>{isKeyVisible ? '隐藏' : '显示'}</span>
             </button>
           </div>
           {isApiKeyMissing ? (
@@ -189,7 +195,8 @@ export default function SettingsView({
         </button>
 
         <p className="settings-form__privacy">
-          ⓘ API Key 仅保存在本地浏览器，仅随翻译请求发送至对应服务。
+          <InfoIcon size={15} />
+          <span>API Key 仅保存在本地浏览器，仅随翻译请求发送至对应服务。</span>
         </p>
       </div>
     </section>

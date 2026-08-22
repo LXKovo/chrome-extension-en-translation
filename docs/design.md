@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | 插件平台 | **Manifest V3 (MV3)** | Chrome 现行插件规范，Service Worker 化、权限最小化 |
 | 前端框架 | **React 18 + TypeScript** | 组件化 UI，TS 提供强类型保障；锁定 18 是因为 `md-wx` 内联打包了 React 18 的 jsx-runtime，在 React 19 下加载即报错 |
-| 构建工具 | **Vite**（配合 `@crxjs/vite-plugin` 或等价插件） | 快速构建、HMR、多入口（content/popup/background）打包 |
+| 构建工具 | **Vite**（配合 `@crxjs/vite-plugin` 或等价插件） | 快速构建、HMR、多入口（content/sidepanel/background）打包 |
 | 内容提取 | **`@mozilla/readability`** | 文章主体提取（详见 §4） |
 | HTML → Markdown | **`turndown` + `turndown-plugin-gfm`** | 结构化的 HTML 转 Markdown，GFM 插件支持表格、删除线等 |
 | 安全净化 | **`dompurify`** | 提取出的 HTML 在转 Markdown 前先做 XSS 净化 |
@@ -34,7 +34,7 @@
 
 ## 3. 系统整体架构
 
-插件采用 MV3 的三层结构：**内容脚本（Content Script）** 负责提取，**后台 Service Worker** 负责翻译调用与消息路由，**弹窗（Popup，React UI）** 负责交互与结果展示。
+插件采用 MV3 的三层结构：**内容脚本（Content Script）** 负责提取，**后台 Service Worker** 负责翻译调用与消息路由，**侧边栏（Side Panel，React UI）**负责交互与结果展示。UI 通过 `chrome.sidePanel` API 渲染在 Chrome 右侧面板中（点击工具栏图标打开），高度自动铺满整个浏览器、可跨标签页保持打开，适合长文翻译与定格展示。
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -51,14 +51,14 @@
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Background Service Worker（后台）                  │
-│   · 消息路由（Popup ↔ Content Script）                         │
+│   · 消息路由（侧边栏 ↔ Content Script）                         │
 │   · OpenAI 兼容翻译调用（streaming，携带 API Key）             │
 │   · 读取/写入 chrome.storage.local                            │
 └───────────────┬───────────────────────────┬───────────────────┘
                 │  Port 消息（流式增量）       │  chrome.storage.local
                 ▼                           ▼
 ┌───────────────────────────────┐   ┌──────────────────────────┐
-│  Popup（React UI，md-wx 渲染）  │   │  chrome.storage.local     │
+│  侧边栏（React UI，md-wx 渲染） │   │  chrome.storage.local     │
 │   · 触发提取 / 选择模型          │   │   · lastResult（最近一次） │
 │   · 打字机逐字缓冲区            │   │   · settings（配置）       │
 │   · <MarkdownRenderer/>       │   └──────────────────────────┘
@@ -71,7 +71,7 @@
 | --- | --- | --- |
 | Content Script | 文章提取 | 唯一能访问页面 DOM 的层，运行在隔离世界，负责提取与 Markdown 转换 |
 | Background | 翻译调用、消息路由 | 持有 API Key 发起翻译；因 Service Worker 不受页面 CORS 限制，可稳定调用第三方 API |
-| Popup | 交互与展示 | React 页面，负责用户操作、打字机展示、md-wx 渲染 |
+| 侧边栏 | 交互与展示 | React 页面（`chrome.sidePanel`），负责用户操作、打字机展示、md-wx 渲染 |
 
 ## 4. 内容提取方案（关键与难点）
 
@@ -127,7 +127,7 @@
 ### 5.2 流式输出
 
 - 翻译请求开启流式（SSE），大模型按 token 增量返回，为打字机效果提供数据源。
-- 采用 `chrome.runtime.connect` 长连接（Port）将增量从后台推送到 Popup。
+- 采用 `chrome.runtime.connect` 长连接（Port）将增量从后台推送到侧边栏。
 
 ### 5.3 翻译输入与输出契约
 
@@ -147,7 +147,7 @@
 
 ## 6. 打字机展示方案
 
-- 大模型流式返回的 token 增量，先进入 Popup 内的**逐字缓冲区（字符队列）**。
+- 大模型流式返回的 token 增量，先进入侧边栏内的**逐字缓冲区（字符队列）**。
 - 以稳定速率逐字释放，逐步拼接为一个不断增长的 Markdown 字符串状态。
 - 该字符串作为 `markdown` 属性传给 `md-wx` 的 `<MarkdownRenderer>`，实现“逐字”打字机效果。
 - 用户可随时**停止**展示（终止缓冲并立即显示已生成内容，或中断流式连接）。
@@ -158,7 +158,7 @@
 - 数据键：
   - `lastResult`：最近一次翻译结果（最终 Markdown 字符串 + `{ title, author, url, timestamp }` 元数据）。
   - `settings`：用户配置（`baseURL` / `apiKey` / `model`）。
-- 打开 Popup 时默认加载 `lastResult`，满足“查看上次结果”的需求；**不维护历史列表**。
+- 打开侧边栏时默认加载 `lastResult`，满足“查看上次结果”的需求；**不维护历史列表**。
 
 ## 8. 关键流程
 
@@ -166,25 +166,25 @@
 用户点击工具栏图标
    │
    ▼
-Popup 打开，加载 lastResult（若有）
+侧边栏打开（右侧全高面板），加载 lastResult（若有）
    │
    ▼ 点击“提取并翻译”
-Popup → Content Script（请求提取）
+侧边栏 → Content Script（请求提取）
    │
    ▼
 Content Script 提取并转 Markdown，返回 { title, author, url, markdown }
    │
    ▼
-Popup 拼接头部，将正文 Markdown 交由 Background 翻译
+侧边栏拼接头部，将正文 Markdown 交由 Background 翻译
    │
    ▼
 Background 以流式调用 OpenAI 兼容接口
    │
    ▼  Port 逐增量推送
-Popup 打字机逐字缓冲 → <MarkdownRenderer> 动态渲染
+侧边栏打字机逐字缓冲 → <MarkdownRenderer> 动态渲染
    │
    ▼ 流结束
-Popup 拼接最终格式 → 写入 chrome.storage.local
+侧边栏拼接最终格式 → 写入 chrome.storage.local
 ```
 
 ## 9. 目录结构规范
@@ -195,7 +195,7 @@ chrome-extension-en-translation/
 │   ├── proposal.md                # 需求文档
 │   └── design.md                  # 本文档
 ├── public/
-│   ├── manifest.json              # MV3 清单（权限、入口声明）
+│   ├── manifest.json              # MV3 清单（权限、side_panel.default_path 入口声明）
 │   └── icons/                     # 插件图标
 ├── src/
 │   ├── background/                # 后台 Service Worker
@@ -205,7 +205,7 @@ chrome-extension-en-translation/
 │   ├── content/                   # 内容脚本
 │   │   ├── index.ts               # 入口：接收消息、返回提取结果
 │   │   └── extractor/             # 提取链路（Readability + 图片归一化 + Turndown）
-│   ├── popup/                     # 弹窗 UI（React）
+│   ├── sidepanel/                 # 侧边栏 UI（React）
 │   │   ├── main.tsx               # React 挂载入口
 │   │   ├── App.tsx                # 根组件
 │   │   ├── components/            # 通用组件（模型选择、结果视图等）
@@ -225,9 +225,9 @@ chrome-extension-en-translation/
 **目录职责约定**：
 
 - `src/shared/` 为跨层共享层，仅存放**无副作用**的类型、常量与协议定义，不依赖浏览器插件 API 的具体实现细节。
-- `src/background/`、`src/content/`、`src/popup/` 为三个独立运行上下文，**不得相互直接 import 对方内部实现**，
+- `src/background/`、`src/content/`、`src/sidepanel/` 为三个独立运行上下文，**不得相互直接 import 对方内部实现**，
   只能通过 `src/shared/` 与 `chrome.runtime` 消息通信。
-- 提取、翻译、展示三大能力分别落在 `content/extractor`、`background/translator`、`popup/hooks`，职责单一、可替换。
+- 提取、翻译、展示三大能力分别落在 `content/extractor`、`background/translator`、`sidepanel/hooks`，职责单一、可替换。
 
 ## 10. 编码规范
 
@@ -264,7 +264,7 @@ chrome-extension-en-translation/
 
 ## 11. 安全与隐私设计
 
-- **最小权限**：Manifest 中仅申请 `storage`、`activeTab`（或按需 `scripting`）及目标 API 主机的访问权限。
+- **最小权限**：Manifest 中仅申请 `storage`、`activeTab`、`scripting`、`sidePanel` 及目标 API 主机的访问权限。
 - **净化**：所有提取的 HTML 经 `dompurify` 处理后再转 Markdown，防止恶意页面注入。
 - **密钥安全**：API Key 仅存储于本地 `chrome.storage.local`，仅随翻译请求发送至对应端点，日志不输出密钥。
 - **数据最小化**：不采集、不存储历史记录，不额外上传用户数据。

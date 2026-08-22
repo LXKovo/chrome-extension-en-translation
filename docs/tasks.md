@@ -15,14 +15,14 @@
 
 | ID | 任务 | 优先级 | 依赖 | 可见效果 |
 | --- | --- | --- | --- | --- |
-| T1 | 工程初始化：可加载的最小扩展 | P0 | — | Chrome 加载扩展，点图标弹空白 Popup |
-| T2 | 主页面 UI 骨架与视图切换 | P0 | T1 | Popup 静态布局完整，主/设置视图可切换 |
+| T1 | 工程初始化：可加载的最小扩展 | P0 | — | Chrome 加载扩展，点图标打开空白侧边栏 |
+| T2 | 主页面 UI 骨架与视图切换 | P0 | T1 | 侧边栏静态布局完整，主/设置视图可切换 |
 | T3 | 内容提取与 Markdown 转换 | P0 | T1 | 拿到当前页面的 Markdown 原文 |
 | T4 | 设置页表单与配置存储 | P0 | T2 | 可保存/读取 API 地址、Key、模型 |
 | T5 | 翻译服务（Background 流式） | P0 | T4 | 流式获取大模型翻译增量 |
 | T6 | 一键翻译主流程 + 打字机展示 | P0 | T2, T3, T5 | 点击按钮，结果逐字动态展示 |
 | T7 | 下载 Markdown | P0 | T6 | 导出 `.md` 文件 |
-| T8 | 结果持久化与恢复 | P1 | T6 | 重开 Popup 可见上次结果 |
+| T8 | 结果持久化与恢复 | P1 | T6 | 重开侧边栏可见上次结果 |
 | T9 | 状态流转与错误处理 | P1 | T6 | 各状态提示正确、错误可读、可停止 |
 | T10 | 打磨与整体验收 | P2 | 全部 | 通过验收清单，整体可用 |
 
@@ -38,10 +38,10 @@
 - **实现要点**：
   - 初始化 Vite + `@crxjs/vite-plugin` + React 18 + TypeScript 工程。
   - 配置 ESLint（typescript-eslint + react-hooks）、Prettier、husky + lint-staged、commitlint。
-  - 编写 `manifest.json`（MV3；`storage`、`activeTab`、`scripting` 权限 + API 主机访问权限）。
-  - 建立目录骨架 `src/{background, content, popup, shared}`，各入口有最小占位实现。
+  - 编写 `manifest.json`（MV3；`storage`、`activeTab`、`scripting`、`sidePanel` 权限 + `side_panel.default_path` + API 主机访问权限）。
+  - 建立目录骨架 `src/{background, content, sidepanel, shared}`，各入口有最小占位实现。
   - 在 `src/shared/` 定义消息名、存储键、类型与常量的初始版本。
-- **完成标准 / 可见效果**：在 Chrome `chrome://extensions` 加载后，点击工具栏图标能弹出 Popup 页面（内容可为空白）。
+- **完成标准 / 可见效果**：在 Chrome `chrome://extensions` 加载后，点击工具栏图标能打开右侧侧边栏页面（内容可为空白）。
 
 ---
 
@@ -54,7 +54,7 @@
   - 按主页面布局搭建四个区域的静态结构：顶栏 Header（标题 + ⚙️设置入口）、操作区 ActionBar（模型下拉 + 一键翻译按钮 + 下载按钮）、状态区 StatusBar、结果区 ResultView。
   - 实现「主视图 / 设置视图」切换（设置视图先为占位）。
   - 引入 `md-wx` 依赖及样式，结果区可渲染一段**静态示例 Markdown**。
-- **完成标准 / 可见效果**：打开 Popup 看到与布局图一致的静态页面，点击「设置」可切到设置占位视图，结果区能渲染示例 Markdown。
+- **完成标准 / 可见效果**：打开侧边栏看到与布局图一致的静态页面，点击「设置」可切到设置占位视图，结果区能渲染示例 Markdown。
 
 ---
 
@@ -96,7 +96,7 @@
 - **实现要点**：
   - Background 消息路由 + `chrome.runtime.connect` Port 长连接。
   - OpenAI 兼容翻译客户端：`baseURL` + `model` + `apiKey` 可配，开启流式（SSE）。
-  - 读取 `settings` 后发起流式翻译，将增量通过 Port 推送到 Popup。
+  - 读取 `settings` 后发起流式翻译，将增量通过 Port 推送到侧边栏。
   - 翻译输入为 Markdown 原文；Prompt 要求标题与正文译成中文、保持 Markdown 结构与图片语法不变。
 - **完成标准 / 可见效果**：配置有效 API Key 后，能流式收到翻译增量（可临时在结果区展示原始流式文本验证连通性）。
 
@@ -135,9 +135,9 @@
 - **涉及页面/模块**：[示意图-主页面.md](layouts/示意图-主页面.md) 的「结果区（上次结果）」
 - **实现要点**：
   - 翻译完成后将最终 Markdown + 元数据（`title / author / url / timestamp`）写入 `chrome.storage.local` 的 `lastResult`。
-  - 打开 Popup 时加载 `lastResult` 并默认展示，状态区显示「上次翻译于 …」。
+  - 打开侧边栏时加载 `lastResult` 并默认展示，状态区显示「上次翻译于 …」。
   - 不维护历史列表。
-- **完成标准 / 可见效果**：翻译后关闭再打开 Popup，上次结果仍在，可直接查看或下载。
+- **完成标准 / 可见效果**：翻译后关闭再打开侧边栏，上次结果仍在，可直接查看或下载。
 
 ---
 
@@ -185,7 +185,7 @@ T1 工程初始化
 
 ## 5. 验收清单（T10 依据）
 
-- [ ] Chrome 可加载扩展，点击工具栏图标弹出 Popup。
+- [ ] Chrome 可加载扩展，点击工具栏图标打开右侧侧边栏。
 - [ ] 在英文文章页点击「一键翻译」，能提取正文并逐字展示中文翻译。
 - [ ] 输出格式符合需求文档（标题 / 作者 / 原文链接 / 正文）。
 - [ ] 图片以 `![alt](src)` 形式保留。

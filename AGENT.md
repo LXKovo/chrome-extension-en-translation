@@ -33,7 +33,7 @@
 | `docs/proposal.md`                | 需求文档（功能、输出格式、已确认决策）                  | 理解需求/验收时        |
 | `docs/design.md`                  | 技术架构（选型、模块、目录、编码规范）                  | 实现与设计决策时       |
 | `docs/layouts/实现步骤.md`        | 页面清单与里程碑                                        | 规划顺序时             |
-| `docs/layouts/示意图-主页面.md`   | 主页面（Popup）布局                                     | 开发 UI 时             |
+| `docs/layouts/示意图-主页面.md`   | 主页面（侧边栏）布局                                    | 开发 UI 时             |
 | `docs/layouts/示意图-设置页面.md` | 设置页面布局                                            | 开发 UI 时             |
 | `docs/tasks.md`                   | 任务拆分（T1–T10，含依赖与验收标准）                    | **执行每个任务时必读** |
 | `.trae/rules/AGENT.md`            | 项目开发规则（代码风格、模块边界、安全、AI 任务规范等） | 编写代码时             |

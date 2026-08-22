@@ -33,8 +33,8 @@ export default function StatusBar({ status, restoredAt = null }: StatusBarProps)
     restoredAt != null ? `上次翻译于 ${formatTimestamp(restoredAt)}` : STATUS_TEXT[status];
 
   return (
-    <section className={`status-bar status-bar--${status}`}>
-      <span className="status-bar__dot">●</span>
+    <section className={`status-bar status-bar--${status}`} aria-live="polite">
+      <span className="status-bar__dot" aria-hidden="true" />
       <span className="status-bar__text">{text}</span>
     </section>
   );

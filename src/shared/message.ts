@@ -29,7 +29,7 @@ export type MessageRequest = ExtractArticleRequest | StopTranslateRequest;
 
 /**
  * Port 翻译流协议（docs/design.md §5.2）。
- * Popup 以 chrome.runtime.connect({ name: PORT_TRANSLATE_STREAM }) 建立长连接，
+ * 侧边栏以 chrome.runtime.connect({ name: PORT_TRANSLATE_STREAM }) 建立长连接，
  * 先发送 TranslateRequest，Background 读取 settings 开启流式翻译并回推 StreamEvent。
  */
 
@@ -64,7 +64,7 @@ export interface StreamErrorEvent {
   error: string;
 }
 
-/** Background → Popup 的流式事件联合类型 */
+/** Background → Sidebar 的流式事件联合类型 */
 export type StreamEvent = StreamChunkEvent | StreamDoneEvent | StreamErrorEvent;
 
 /** 通用成功响应（携带数据） */

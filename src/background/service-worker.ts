@@ -1,6 +1,6 @@
 /**
  * 后台 Service Worker 入口（docs/design.md §5 / §8）。
- * 职责：消息路由（停止翻译）+ 翻译 Port 长连接，将 OpenAI 流式增量推送给 Popup。
+ * 职责：消息路由（停止翻译）+ 翻译 Port 长连接，将 OpenAI 流式增量推送给 侧边栏。
  * 翻译客户端集中在 ./translator，存储读取在 ./storage，各模块职责单一。
  */
 import {
@@ -49,8 +49,19 @@ function adjustBaseURLForModel(
   return { baseURL, adjusted: false };
 }
 
-/** 当前翻译流的中止控制器：用于「停止翻译」「Popup 断开」时中断底层请求 */
+/** 正在翻译的流的中止控制器：用于「停止翻译」「侧边栏 断开」时中断底层请求 */
 let currentAbortController: AbortController | null = null;
+
+/**
+ * 将扩展图标点击行为绑定为「打开右侧侧边栏面板」，而非锚定在图标下方的小窗。
+ * 依赖 manifest 中 `side_panel.default_path` 与 `sidePanel` 权限（docs/design.md §9）。
+ * 在安装与每次 SW 启动时都执行，保证行为始终生效。
+ */
+void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+chrome.runtime.onInstalled.addListener(() => {
+  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+});
 
 /** 消息路由：处理「停止翻译」请求 */
 chrome.runtime.onMessage.addListener((request: MessageRequest, _sender, sendResponse) => {
@@ -76,14 +87,14 @@ chrome.runtime.onConnect.addListener((port) => {
     void runTranslation(port, request);
   });
 
-  // Popup 刷新或关闭时中断当前流，避免残留请求
+  // 侧边栏 刷新或关闭时中断当前流，避免残留请求
   port.onDisconnect.addListener(() => {
     currentAbortController?.abort();
     currentAbortController = null;
   });
 });
 
-/** 读取配置并启动流式翻译，将增量通过 Port 推送到 Popup */
+/** 读取配置并启动流式翻译，将增量通过 Port 推送到 侧边栏 */
 async function runTranslation(port: chrome.runtime.Port, request: TranslateRequest): Promise<void> {
   // 为每次翻译单独建立中止控制器，保证可精确中断当前流
   const controller = new AbortController();
@@ -137,6 +148,6 @@ function post(port: chrome.runtime.Port, event: StreamEvent): void {
   try {
     port.postMessage(event);
   } catch {
-    // Popup 已关闭导致 Port 失效，忽略本次推送
+    // 侧边栏 已关闭导致 Port 失效，忽略本次推送
   }
 }

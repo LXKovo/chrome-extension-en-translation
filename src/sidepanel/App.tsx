@@ -1,5 +1,5 @@
 /**
- * Popup 根组件：承载顶栏，在「主视图 / 设置视图」之间切换。
+ * 侧边栏根组件：承载顶栏，在「主视图 / 设置视图」之间切换。
  * 在此统一管理已保存配置（settings 键）与当前选中模型（主页面下拉与设置页「默认模型」联动）。
  * 布局依据 docs/layouts/示意图-主页面.md 与 示意图-设置页面.md。
  */
@@ -9,6 +9,7 @@ import type { Settings } from '../shared/types';
 import AppHeader from './components/app-header';
 import MainView from './components/main-view';
 import SettingsView from './components/settings-view';
+import { CheckIcon } from './components/icons';
 
 type ViewName = 'main' | 'settings';
 
@@ -19,7 +20,7 @@ export default function App() {
   const [view, setView] = useState<ViewName>('main');
   const isSettingsView = view === 'settings';
 
-  // 已保存的配置（settings 键），打开 Popup 时从 chrome.storage.local 恢复
+  // 已保存的配置（settings 键），打开侧边栏时从 chrome.storage.local 恢复
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   // 当前选中的模型：主页面下拉与设置页「默认模型」共用同一状态，保持联动
   const [model, setModel] = useState(DEFAULT_SETTINGS.model);
@@ -29,7 +30,7 @@ export default function App() {
   const [toast, setToast] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
 
-  // 打开 Popup 时恢复已保存配置，并同步模型选择
+  // 打开侧边栏时恢复已保存配置，并同步模型选择
   useEffect(() => {
     let cancelled = false;
     const loadSettings = async () => {
@@ -114,7 +115,12 @@ export default function App() {
           onOpenSettings={() => setView('settings')}
         />
       )}
-      {toast ? <div className="toast">{toast}</div> : null}
+      {toast ? (
+        <div className="toast" role="status" aria-live="polite">
+          <CheckIcon size={14} className="toast__icon" />
+          <span>{toast}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

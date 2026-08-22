@@ -1,6 +1,6 @@
 /**
  * 跨层共享类型定义。
- * 仅存放无副作用的数据类型，供 background / content / popup 共同使用（docs/design.md §10.3）。
+ * 仅存放无副作用的数据类型，供 background / content / sidepanel 共同使用（docs/design.md §10.3）。
  */
 
 /** 用户配置（OpenAI 兼容接口），存储于 chrome.storage.local 的 settings 键 */
@@ -37,7 +37,7 @@ export interface ModelOption {
   label: string;
 }
 
-/** 流式翻译增量（Background → Popup，通过 Port 推送） */
+/** 流式翻译增量（Background → Sidebar，通过 Port 推送） */
 export interface TranslateChunk {
   delta: string;
 }

@@ -31,7 +31,7 @@
 | `docs/proposal.md` | 需求文档（功能、输出格式、已确认决策） | 理解需求/验收时 |
 | `docs/design.md` | 技术架构（选型、模块、目录、编码规范） | 实现与设计决策时 |
 | `docs/layouts/实现步骤.md` | 页面清单与里程碑 | 规划顺序时 |
-| `docs/layouts/示意图-主页面.md` | 主页面（Popup）布局 | 开发 UI 时 |
+| `docs/layouts/示意图-主页面.md` | 主页面（侧边栏）布局 | 开发 UI 时 |
 | `docs/layouts/示意图-设置页面.md` | 设置页面布局 | 开发 UI 时 |
 | `docs/tasks.md` | 任务拆分（T1–T10，含依赖与验收标准） | **执行每个任务时必读** |
 | `.claude/rules/project_rules.md` | 项目开发规则（代码风格、模块边界、安全等） | 编写代码时 |
@@ -42,11 +42,11 @@
 src/
 ├── background/   # 后台 Service Worker：消息路由、翻译、存储
 ├── content/      # 内容脚本：文章提取与 Markdown 转换
-├── popup/        # 弹窗 UI（React）：交互、打字机、md-wx 渲染
+├── sidepanel/    # 侧边栏 UI（React）：交互、打字机、md-wx 渲染
 └── shared/       # 跨层共享：类型、常量、消息协议
 ```
 
-- `shared/` 只放无副作用类型/常量/协议；`background`/`content`/`popup` 三者不得互相直接 import，仅通过 `shared` 与 `chrome.runtime` 消息通信。
+- `shared/` 只放无副作用类型/常量/协议；`background`/`content`/`sidepanel` 三者不得互相直接 import，仅通过 `shared` 与 `chrome.runtime` 消息通信。
 
 ## AI 任务执行规范（必须遵守）
 
